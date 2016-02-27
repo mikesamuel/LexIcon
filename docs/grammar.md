@@ -304,9 +304,15 @@ is likely a call to an imported procedure.
 `Name.(inp ...)` is a call to a procedure named `Name` passing `inp` as the first
 actual parameter and auto-threading subsequent parameters.
 
+`Name:variant` is a call to the variant named `variant` of `Name`.  This is
+mostly used internally by the preprocessor and should not be in human-authored
+code.
+
 ----
 
-*Callee* := (*Namspace* "`.`")<sup>?</sup> *Identifier* *ToolKind*<sup>?</sup>;
+*Callee* := (*Namspace* "`.`")<sup>?</sup> *Identifier* *ToolKind*<sup>?</sup> *Variant*;
+
+*Variant* := `::` *Identifier*;
 
 *Actuals* := "`.(`" (*Actual* ("`,`" *Actual*)<sup>\*</sup>)<sup>?</sup> *Ellipsis*<sup>?</sup> "`)`";
 

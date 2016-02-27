@@ -5,18 +5,16 @@ language requires a number of processing steps.
 
 1. Load one or more **tool definition**
 2. **Import** the required grammars.
-3. **Preprocess** grammars to
-  a. explode declarations into variants,
-  b. handle preprocessing annotations, and
-  c. resolve character set differences to simple character sets.
+3. **Preprocess** grammars.
 4. **Translate productions** to procedures.
-5. **Check** the procedures for internal consistency and perform
+5. **Link** callees and callers.
+6. **Check** the procedures for internal consistency and perform
    optimizations.
-6. Identify potentially **infinite recursion** in procedures and
+7. Identify potentially **infinite recursion** in procedures and
    add thread extra parameters to exit an infinite recursion eagerly
    where possibly.
-7. Insert **Snapshot/Recover** instructions into procedures.
-8. Feed procedures and tool definitions into **Application-language backends**
+8. Insert **Snapshot/Recover** instructions into procedures.
+9. Feed procedures and tool definitions into **Application-language backends**
    to generate tool code.  The backend may require a first-pass to a generic
    backend which produces a parse-tree in a java-like intermediate language.
 
@@ -33,11 +31,38 @@ TODO
 
 ## Preprocess grammars
 
-TODO
+Preprocessing involves creating variants of declarations.
+
+For example, many language definitions say things like
+"case-insensitive protocol" so a grammar for an HTTP grammar, `"http"
+"://" ...` is overly restrictive.  Writing `[Hh] [Tt] [Tt] [Pp]` is
+problematic too, so, for the same reason that most regular expression
+languages include case-sensitivity flags, we end up rewriting
+character sets to do case-folding.
+
+Preprocessing involves
+
+1. exploding declarations into variants as necessary,
+2. resolve character set subtraction expressions like (`[abc] - vowels`)
+   to simple character sets.
 
 ## Translate productions to procedures
 
+TODO
+
+## Link callees to callers
+
+Linking callees to callers requires resolving namespaces and tools,
+and auto-threading parameters.
+
 ## Check procedures
+
+TODO
+
+1. Check actual vs formal parameters
+2. Live before use.
+3. Type safety.
+4. Reads past end of buffers.
 
 ## Infinite recursion
 
@@ -61,3 +86,8 @@ for fixed-point variables.  This should be trivially easy with all
 fixed-points from translated productions.  We will punt on others with
 a warning until a use-case is found.
 
+
+## Snapshot & Recover
+
+
+## Application language backends
