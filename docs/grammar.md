@@ -162,7 +162,8 @@ maintain a grammar for a multi-backend system.
 
 Instead, we allow both productions and procedures.
 A *production* defines a non-terminal in terms of a grammar expression.
-A *procedure* defines a non-terminal in terms of a 
+A *procedure* defines a non-terminal in terms of statements in a
+structured programming language.
 
 ----
 
