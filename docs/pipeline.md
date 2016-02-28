@@ -1,7 +1,7 @@
 # The processing pipeline
 
-Converting grammars and tool definitions to code in an application
-language requires a number of processing steps.
+Converting grammars and tool definitions to code in an
+[application language](glossary.md) requires a number of processing steps.
 
 1. Load one or more **tool definition**
 2. **Import** the required grammars.
@@ -89,5 +89,8 @@ a warning until a use-case is found.
 
 ## Snapshot & Recover
 
+TODO
 
 ## Application language backends
+
+TODO

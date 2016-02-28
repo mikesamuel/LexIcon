@@ -76,15 +76,19 @@ The lexical grammar is regular.
 
 ----
 
-This grammar is BNF like but with a few oddities.
+This grammar is BNF-like but with a few oddities.
 
 1. x<sup>\*</sup>: [Kleene star](https://en.wikipedia.org/wiki/Kleene_star), plus,
    and question mark as suffix operators have the usual meaning.
-2. x / y: Grammars are [analytic](https://en.wikipedia.org/wiki/Formal_grammar#Analytic_grammars),
-   not generative.  `/` means first match short-circuits later matches.
+2. x / y: Grammars are
+   [analytic](https://en.wikipedia.org/wiki/Formal_grammar#Analytic_grammars).
+   `/` means the first match
+   [short-circuits](https://en.wikipedia.org/wiki/Short-circuit_evaluation)
+   later matches as opposed to generative grammars where there can be multiple
+   successful paths through an `|`.
 3. x - y: Character sets can be subtracted.  A character set
    expression is
-   a. a `[`...`]`,
+   a. a character set: `[`...`]`,
    b. a reference to a character set expression,
    c. a disjunction of character set expressions, or
    d. a subtraction of two character set expressions.
@@ -327,9 +331,9 @@ expression language.
 
 *Annotation* := *PreprocessingAnnotation*<br>
     / *DataAnnotation*<br>
-    / *SubgrammarAnnotation*<br>
+    / *SubGrammarAnnotation*<br>
     / *VariableAnnotation*<br>
-    / *InterGrammarAnnotation*<br>;
+    / *NestingAnnotation*<br>;
 
 
 ### Preprocessing annotations
@@ -348,28 +352,56 @@ to satisfy inverted character sets?
 
 Data annotations relate strings in the language to data values.
 
----
+----
 
-*DataAnnotation* := TODO;
+*DataAnnotation* := TODO: See POD.mli;
 
-*SubgrammarAnnotation* := TODO;
+### Sub-grammar annotations
 
-*VariableAnnotation* := TODO;
+Language grammars are often large, and parsers disagree on what
+strings mean that use obscure language features, but within many
+grammars is a well-agreed-upon subset.
 
-*InterGrammarAnnotation* := TODO;
+`@Denormalized{" "} Comment` means that the comment is not considered
+part of the well-agreed-upon subset and can be replaced with a single
+space.
 
+`@Elide` is syntactic sugar for `@Denormalized{""}` and can be used to
+get rid of dangerous constructs when sanitizing.
 
-TODO: See POD.mli
+----
 
-### Subgrammar annotations
-
-TODO: @Denormalized, @Elide, 
+*SubGrammarAnnotation* := TODO @Denormalized, @Elide;
 
 ### Variable annotations
 
-TODO: @Scope, @Set, @If
+TODO
 
-### Inter-grammar annotations
+----
 
-TODO: @Embedded, @Until
+*VariableAnnotation* := TODO: @Scope, @Set, @If;
 
+### Nesting annotations
+
+Nesting annotations deal with languages that embed
+strings in other languages like HTML attributes which
+can embed URLs, CSS, JavaScript.
+
+----
+
+*NestingAnnotation* := TODO: @Embedded, @Until;
+
+
+## Statements
+
+TODO
+
+
+## Expressions
+
+TODO
+
+
+## Predicates
+
+TODO
