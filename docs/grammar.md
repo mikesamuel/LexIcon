@@ -44,7 +44,8 @@ The lexical grammar is regular.
 *IdentifierOrKeyword* := ([*IdentifierCharacter*](grammar.md#IdentifierCharacter) - `[0-9]`) [*IdentifierCharacter*](grammar.md#IdentifierCharacter)<sup>\*</sup>;
 
 <a name="Keyword"></a>
-*Keyword* := ("`module`" / "`namespace`" / "`type`" / "`var`") !([*IdentifierCharacter*](grammar.md#IdentifierCharacter));
+*Keyword* := ("`module`" / "`namespace`" / "`type`" / "`var`" / "`let`" / "`do`" / "`while`" / "`try`")<br>
+    !([*IdentifierCharacter*](grammar.md#IdentifierCharacter));
 
 <a name="Identifier"></a>
 *Identifier* := !([*Keyword*](grammar.md#Keyword)) [*IdentifierOrKeyword*](grammar.md#IdentifierOrKeyword);
@@ -380,7 +381,7 @@ is likely a call to an imported procedure.
 `Name.(inp ...)` is a call to a procedure named `Name` passing `inp` as the first
 actual parameter and auto-threading subsequent parameters.
 
-`Name:variant` is a call to the variant named `variant` of `Name`.  This is
+`Name::variant` is a call to the variant named `variant` of `Name`.  This is
 mostly used internally by the preprocessor and should not be in human-authored
 code.
 
@@ -476,8 +477,69 @@ can embed URLs, CSS, JavaScript.
 
 ## Statements
 
-TODO
+Each statement either passes or fails similar to statements in the
+Icon programming language.  Statement control flow is based on
+these pass/fail results.
 
+The `/` operator can be used to separate statements and has the
+same meaning as in a grammar - it passes when either operand
+passes, and only tries the right operand when the left fails.
+
+Sequential statements are separated by semicolons.  `{...}`
+groups sequential statements together.  When two statements are
+in sequence, the whole succeeds when both succeeds, fails
+when either fails, and the second is only attempted if the
+first succeeds.
+
+Loops succeed when the first iteration of the loop succeeds.  If an
+iteration succeeds and the loop condition evaluates to true then
+another iteration is attempted.  `{...}+` and `{...}*` are syntactic
+sugar for loops, and `{...}?` is syntactic sugar for `{...} / {}`.
+
+All&only statements that have side effects are in the production
+*Mut*.  These statements always succeed.  Any preconditions
+must be checked before execution reaches them.
+
+*Panic* neither passes nor succeeds, but causes execution to
+terminate with no usable result.  TODO: advice for backend
+implementors -- on panic, set the length of output buffers
+to zero or otherwise spike them.
+
+----
+
+*Statement* := *Alt*;
+
+*Alt* := *Seq* (("`/`" / "`else`") *Alt*)<sup>?</sup>;
+
+*Seq := *SimpleStatement* ("`;`" *Seq*)<sup>?</sup><br>
+     / *Block* *RepOp*<sup>?</sup> *Seq*<sup>?</sup>;
+
+*Block* := "`{`" *Statement*<sup>?</sup> "`}`";
+
+*SimpleStatement* := *Call* / *Let* / *Loop*<br>
+    / *Mut* / *Panic* / *Require* / *Try* / *Noop*;
+
+*Call* := *Callee* *Actuals*;
+
+*Let* := "`let`" *Identifier* ("`:`" *TypeExpr*)<sup>?</sup> "`=`" *Expr*;
+
+<!-- TODO: is "do" an appropriate keyword here? -->
+
+*Loop* := "`do`" *Seq* *LoopCondition*<sup>?</sup>;
+
+*LoopCondition* := "`while`" *Predicate*;
+
+*Mut* := TODO;
+
+*Panic* := "`panic`";
+
+*Require* := "`require`" *Predicate*;
+
+*Try* := "`try`" *Statement* "`recover`" *MutBlock*;
+
+*MutBlock* := "`{`" (*Mut* ("`;`" *Mut*)<sup>\*</sup>)<sup>?</sup> "`}`";
+
+*Noop* := "`;`";
 
 ## Expressions
 
