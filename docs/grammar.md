@@ -24,55 +24,86 @@ The lexical grammar is regular.
 
 ----
 
-*Ignorable* := *Space* / *LineBreak* / *Comment*;
+<a name="Ignorable"></a>
+*Ignorable* := [*Space*](grammar.md#Space) / [*LineBreak*](grammar.md#LineBreak) / [*Comment*](grammar.md#Comment);
 
-*LineBreak* := `"\r\n"` / *LineBreakCharacter*;
+<a name="LineBreak"></a>
+*LineBreak* := `"\r\n"` / [*LineBreakCharacter*](grammar.md#LineBreakCharacter);
 
+<a name="LineBreakCharacter"></a>
 *LineBreakCharacter* := `[\r\n]`;
 
+<a name="Space"></a>
 *Space* := `[\x09\x20]`;
 
-*Comment* := "`//`" (*UnicodeScalarValue* - *LineBreakCharacter*)<sup>\*</sup><br>
+<a name="Comment"></a>
+*Comment* := "`//`" (*UnicodeScalarValue* - [*LineBreakCharacter*](grammar.md#LineBreakCharacter))<sup>\*</sup><br>
     / "`/*`" ("`*`"<sup>\*</sup> `[^*/]` / "`/`")<sup>\*</sup> "`*/`";
 
-*IdentifierOrKeyword* := (*IdentifierCharacter* - `[0-9]`) *IdentifierCharacter*<sup>\*</sup>;
+<a name="IdentifierOrKeyword"></a>
+*IdentifierOrKeyword* := ([*IdentifierCharacter*](grammar.md#IdentifierCharacter) - `[0-9]`) [*IdentifierCharacter*](grammar.md#IdentifierCharacter)<sup>\*</sup>;
 
-*Keyword* := ("`module`" / "`namespace`" / "`type`" / "`var`") !(*IdentifierCharacter*);
+<a name="Keyword"></a>
+*Keyword* := ("`module`" / "`namespace`" / "`type`" / "`var`") !([*IdentifierCharacter*](grammar.md#IdentifierCharacter));
 
-*Identifier* := !(*Keyword*) *IdentifierOrKeyword*;
+<a name="Identifier"></a>
+*Identifier* := !([*Keyword*](grammar.md#Keyword)) [*IdentifierOrKeyword*](grammar.md#IdentifierOrKeyword);
 
+<a name="IdentifierCharacter"></a>
 *IdentifierCharacter* := `[A-Za-z0-9_$]`;
 
-*DelimitedToken* := *DoubleQuotedString*<br>
-    / *SingleQuotedString*<br>
-    / *CharacterSet*;
+<a name="DelimitedToken"></a>
+*DelimitedToken* := [*DoubleQuotedString*](grammar.md#DoubleQuotedString)<br>
+    / [*SingleQuotedString*](grammar.md#SingleQuotedString)<br>
+    / [*CharacterSet*](grammar.md#CharacterSet);
 
-*MetaCharacter* := "`\\`" / "`/`" / "`\"`" / "`\'`" / "`[`" / "`]`" / "`.`";
+<a name="MetaCharacter"></a>
+*MetaCharacter* := "`\\`" / "`/`" / "`\"`" / "`\'`" / "`[`" / "`]`" / "`.`" / "`-`";
 
-*NormalCharacter* := *UnicodeScalarValue* - *MetaCharacter* - *LineBreakCharacter*<br>
-    / *EscapeSequence*;
+<a name="NormalCharacter"></a>
+*NormalCharacter* := *UnicodeScalarValue* - [*MetaCharacter*](grammar.md#MetaCharacter) - [*LineBreakCharacter*](grammar.md#LineBreakCharacter)<br>
+    / [*EscapeSequence*](grammar.md#EscapeSequence);
 
+<a name="Punctuator"></a>
 *Punctuator* := "`:=`" / "`:=`" / "`++`" / "`--`" / "`+=`" / "`&&`" / "`||`"<br>
     / "`/`" !(`[^*/]`)<br>
-    / (*MetaCharacter* - *IdentifierChar*);
+    / ([*MetaCharacter*](grammar.md#MetaCharacter) - *IdentifierCharacter*);
 
-*SingleQuotedString* := "`'`" (*NormalCharacter* / (*MetaCharacter* - "`'`"))<sup>\*</sup> "`'`";
+<a name="SingleQuotedString"></a>
+*SingleQuotedString* := "`'`" ([*NormalCharacter*](grammar.md#NormalCharacter) / ([*MetaCharacter*](grammar.md#MetaCharacter) - `['\\]`))<sup>\*</sup> "`'`";
 
-*DoubleQuotedString* := "`\"`" (*NormalCharacter* / (*MetaCharacter* - "`\"`"))<sup>\*</sup> "`\"`";
+<a name="DoubleQuotedString"></a>
+*DoubleQuotedString* := "`\"`" ([*NormalCharacter*](grammar.md#NormalCharacter) / ([*MetaCharacter*](grammar.md#MetaCharacter) - `["\\]`))<sup>\*</sup> "`\"`";
 
+*String* := *SingleQuotedString* / *DoubleQuotedString*;
+
+<a name="CharacterSet"></a>
 *CharacterSet* := "`[`" "`^`"<sup>?</sup> *CharacterSetPart*<sup>\*</sup> "`]`";
 
+*CharacterSetPart* := *CharacterRange* / "`[:`" *UnicodeCategory* "`:]`";
+
+*CharacterRange* := *CharacterRangeEndPoint* ("`-`" *CharacterRangeEndPoint*)<sup>?</sup>;
+
+*CharacterRangeEndPoint* := *NormalCharacter*<br>
+    / *MetaCharacter* - `[\^\-\]\\]`;
+
+<a name="Number"></a>
 *Number* := (*Integer* *Fraction*<sup>?</sup> / *Fraction*) *Exponent*<sup>?</sup>?;
 
-*Token* := *Ignorable* / *IdentifierOrKeyword* / *DelimitedToken* / *Number* / *Punctuator*;
+<a name="Token"></a>
+*Token* := [*Ignorable*](grammar.md#Ignorable) / [*IdentifierOrKeyword*](grammar.md#IdentifierOrKeyword) / [*DelimitedToken*](grammar.md#DelimitedToken) / [*Number*](grammar.md#Number) / [*Punctuator*](grammar.md#Punctuator);
 
+<a name="EscapeSequence"></a>
 *EscapeSequence* := "`\`" ("`x`" Hex2 / "`u`" Hex4 / `[0btnfr]` / "`U{`" Hex<sup>+</sup> "`}`");
 
+<a name="Hex"></a>
 *Hex* := `[0-9A-Fa-f]`;
 
-*Hex2* := *Hex* *Hex*;
+<a name="Hex2"></a>
+*Hex2* := [*Hex*](grammar.md#Hex) [*Hex*](grammar.md#Hex);
 
-*Hex4* := *Hex* *Hex* *Hex* *Hex*;
+<a name="Hex4"></a>
+*Hex4* := [*Hex*](grammar.md#Hex) [*Hex*](grammar.md#Hex) [*Hex*](grammar.md#Hex) [*Hex*](grammar.md#Hex);
 
 ----
 
@@ -103,8 +134,10 @@ A LexIcon source file consists of
 
 ----
 
-*CompilationUnit* := *BOM*<sup>?</sup> *Prologue* *Grammar*;
+<a name="CompilationUnit"></a>
+*CompilationUnit* := *BOM*<sup>?</sup> [*Prologue*](grammar.md#Prologue) *Grammar*;
 
+*Grammar* := *Declaration*<sup>\*</sup>;
 
 ## Prologue
 
@@ -115,41 +148,59 @@ backwards-compatibility and graceful deprecation of features.
 
 ----
 
-*Prologue* := *NamespaceDeclaration*<sup>?</sup> *PrologueDeclaration*<sup>\*</sup>;
+<a name="Prologue"></a>
+*Prologue* := [*NamespaceDeclaration*](grammar.md#NamespaceDeclaration)<sup>?</sup> [*PrologueDeclaration*](grammar.md#PrologueDeclaration)<sup>\*</sup>;
 
-*PrologueDeclaration* := *Import* / *TypeDeclaration* / *VarDeclaration*;
+<a name="PrologueDeclaration"></a>
+*PrologueDeclaration* := [*Import*](grammar.md#Import) / [*TypeDeclaration*](grammar.md#TypeDeclaration) / [*VarDeclaration*](grammar.md#VarDeclaration);
 
-*NamespaceDeclaration* := "`namespace`" := *Namespace* "`;`";
+<a name="NamespaceDeclaration"></a>
+*NamespaceDeclaration* := "`namespace`" := [*Namespace*](grammar.md#Namespace) "`;`";
 
-*Import* := "`module`" *Identifier* "`:=`" *ImportCall* "`;`";
+<a name="Import"></a>
+*Import* := "`module`" [*Identifier*](grammar.md#Identifier) "`:=`" [*ImportCall*](grammar.md#ImportCall) "`;`";
 
-*TypeDeclaration* := "`type`" *TypeName* "`:=`" *SumType* "`;`";
+<a name="TypeDeclaration"></a>
+*TypeDeclaration* := "`type`" [*TypeName*](grammar.md#TypeName) "`:=`" [*SumType*](grammar.md#SumType) "`;`";
 
-*VarDeclaration* := "`var`" *VarName* "`:`" *TypeExpr* "`;`";
+<a name="VarDeclaration"></a>
+*VarDeclaration* := "`var`" [*VarName*](grammar.md#VarName) "`:`" [*TypeExpr*](grammar.md#TypeExpr) "`;`";
 
-*ImportCall* := "`import`" "`(`" *String* (*ImportedSymbols*)<sup>?</sup> "`)`";
+<a name="ImportCall"></a>
+*ImportCall* := "`import`" "`(`" *String* ([*ImportedSymbols*](grammar.md#ImportedSymbols))<sup>?</sup> "`)`";
 
+<a name="ImportedSymbols"></a>
 *ImportedSymbols* := "`,`" *StringArray*;
 
-*SumType* := *SymbolicValues*;
+<a name="SumType"></a>
+*SumType* := [*SymbolicValues*](grammar.md#SymbolicValues);
 
-*SymbolicValues* := *SymbolicValue* ("`|`" *SymbolicValue*)<sup>\*</sup>;
+<a name="SymbolicValues"></a>
+*SymbolicValues* := [*SymbolicValue*](grammar.md#SymbolicValue) ("`|`" [*SymbolicValue*](grammar.md#SymbolicValue))<sup>\*</sup>;
 
-*SymbolicValue* := ("`_`" / *SymbolicValueName*) *IndexHint*<sup>?</sup>;
+<a name="SymbolicValue"></a>
+*SymbolicValue* := ("`_`" / [*SymbolicValueName*](grammar.md#SymbolicValueName)) [*IndexHint*](grammar.md#IndexHint)<sup>?</sup>;
 
+<a name="IndexHint"></a>
 *IndexHint* := "`=`" *UnsignedDecimal*;
 
-*TypeExpr* := *TypeName* *TypeModifier*;
+<a name="TypeExpr"></a>
+*TypeExpr* := [*TypeName*](grammar.md#TypeName) [*TypeModifier*](grammar.md#TypeModifier);
 
+<a name="TypeModifier"></a>
 *TypeModifier* := "`*`"<sup>?</sup>;
 
-*Namespace* := *Identifier*;
+<a name="Namespace"></a>
+*Namespace* := [*Identifier*](grammar.md#Identifier);
 
-*VarName* := *Identifier*;
+<a name="VarName"></a>
+*VarName* := [*Identifier*](grammar.md#Identifier);
 
-*TypeName* := *Identifier*;
+<a name="TypeName"></a>
+*TypeName* := [*Identifier*](grammar.md#Identifier);
 
-*SymbolicValueName* := *Identifier*;
+<a name="SymbolicValueName"></a>
+*SymbolicValueName* := [*Identifier*](grammar.md#Identifier);
 
 
 ## Grammar
@@ -167,11 +218,14 @@ structured programming language.
 
 ----
 
-*Declaration* := *Production* / *Procedure*;
+<a name="Declaration"></a>
+*Declaration* := [*Production*](grammar.md#Production) / [*Procedure*](grammar.md#Procedure);
 
-*Production* := *Mods* *ToolKinds* *Identifier* *Sig* "`:=`" *GrammarExpr*;
+<a name="Production"></a>
+*Production* := [*Mods*](grammar.md#Mods) [*ToolKinds*](grammar.md#ToolKinds) [*Identifier*](grammar.md#Identifier) [*Sig*](grammar.md#Sig) "`:=`" [*GrammarExpr*](grammar.md#GrammarExpr);
 
-*Procedure* := *Mods* *ToolKinds* *Identifier* *Sig* "`{`" *StatementBlock* "`}`";
+<a name="Procedure"></a>
+*Procedure* := [*Mods*](grammar.md#Mods) [*ToolKinds*](grammar.md#ToolKinds) [*Identifier*](grammar.md#Identifier) [*Sig*](grammar.md#Sig) "`{`" *StatementBlock* "`}`";
 
 ### Modifiers
 
@@ -183,6 +237,7 @@ language.
 
 ----
 
+<a name="Mods"></a>
 *Mods* := "`@extern`" "`@public`"<sup>\?</sup> / "`@extern`"<sup>\?</sup>;
 
 ### Signatures
@@ -199,12 +254,15 @@ Signatures can be inferred, in which case, the signature consists of
 
 ----
 
-*Sig* := "`(`" *FormalList*<sup>\?</sup> "`)`"<br>
+<a name="Sig"></a>
+*Sig* := "`(`" [*FormalList*](grammar.md#FormalList)<sup>\?</sup> "`)`"<br>
     / ();
 
-*FormalList* := *Formal* ("`,`" *Formal*)<sup>\*</sup>;
+<a name="FormalList"></a>
+*FormalList* := [*Formal*](grammar.md#Formal) ("`,`" [*Formal*](grammar.md#Formal))<sup>\*</sup>;
 
-*Formal* := *VarName* ("`:`" *TypeExpr*)<sup>?</sup>;
+<a name="Formal"></a>
+*Formal* := [*VarName*](grammar.md#VarName) ("`:`" [*TypeExpr*](grammar.md#TypeExpr))<sup>?</sup>;
 
 ### Tool Kinds
 
@@ -223,8 +281,10 @@ A tool kind may appear at most once for a given declaration.
 
 ----
 
-*ToolKinds* := *ToolKind*<sup>\*</sup>;
+<a name="ToolKinds"></a>
+*ToolKinds* := [*ToolKind*](grammar.md#ToolKind)<sup>\*</sup>;
 
+<a name="ToolKind"></a>
 *ToolKind* := "`%Con`" / "`%Dec`" / "`%Enc`" / "`%San`" / "`%Tok`";
 
 ## Grammar Expressions
@@ -256,30 +316,40 @@ like `@CaseFold{7Bit}`.
 
 ----
 
+<a name="GrammarExpr"></a>
 *GrammarExpr* := *OrExpr*;
 
-*Or* := *Cat* ("`/`" *Cat*)<sup>\*</sup>;
+<a name="Or"></a>
+*Or* := [*Cat*](grammar.md#Cat) ("`/`" [*Cat*](grammar.md#Cat))<sup>\*</sup>;
 
-*Cat* := *Diff* (*Diff*)<sup>\*</sup>;
+<a name="Cat"></a>
+*Cat* := [*Diff*](grammar.md#Diff) ([*Diff*](grammar.md#Diff))<sup>\*</sup>;
 
-*Diff* := *Annot* ("`-`" *Annot*)<sup>\*</sup>;
+<a name="Diff"></a>
+*Diff* := [*Annot*](grammar.md#Annot) ("`-`" [*Annot*](grammar.md#Annot))<sup>\*</sup>;
 
-*Annot* := (*Annotation*)<sup>\*</sup> *Lookahead*;
+<a name="Annot"></a>
+*Annot* := ([*Annotation*](grammar.md#Annotation))<sup>\*</sup> [*Lookahead*](grammar.md#Lookahead);
 
-*Lookahead* := "`!`"<sup>\*</sup> *Rep*;
+<a name="Lookahead"></a>
+*Lookahead* := "`!`"<sup>\*</sup> [*Rep*](grammar.md#Rep);
 
-*Rep* := *GrammarExprAtom* *RepOp*<sup>?</sup>;
+<a name="Rep"></a>
+*Rep* := [*GrammarExprAtom*](grammar.md#GrammarExprAtom) [*RepOp*](grammar.md#RepOp)<sup>?</sup>;
 
+<a name="RepOp"></a>
 *RepOp* := "`*`" / "`+`" / "`?`";
 
-*GrammarExprAtom* := "`(`" *GrammarExpr* "`)`"<br>
+<a name="GrammarExprAtom"></a>
+*GrammarExprAtom* := "`(`" [*GrammarExpr*](grammar.md#GrammarExpr) "`)`"<br>
     / "`(`" "`)`"<br>
-    / *Callee* *Actuals*<sup>?</sup><br>
-    / *CharacterSet*<br>
-    / *SingleQuotedString*<br>
-    / *DoubleQuotedString*<br>
-    / *PanicExpr*;
+    / [*Callee*](grammar.md#Callee) [*Actuals*](grammar.md#Actuals)<sup>?</sup><br>
+    / [*CharacterSet*](grammar.md#CharacterSet)<br>
+    / [*SingleQuotedString*](grammar.md#SingleQuotedString)<br>
+    / [*DoubleQuotedString*](grammar.md#DoubleQuotedString)<br>
+    / [*PanicExpr*](grammar.md#PanicExpr);
 
+<a name="PanicExpr"></a>
 *PanicExpr* := "`panic`";
 
 
@@ -315,12 +385,16 @@ code.
 
 ----
 
-*Callee* := (*Namspace* "`.`")<sup>?</sup> *Identifier* *ToolKind*<sup>?</sup> *Variant*;
+<a name="Callee"></a>
+*Callee* := (*Namspace* "`.`")<sup>?</sup> [*Identifier*](grammar.md#Identifier) [*ToolKind*](grammar.md#ToolKind)<sup>?</sup> [*Variant*](grammar.md#Variant);
 
-*Variant* := `::` *Identifier*;
+<a name="Variant"></a>
+*Variant* := `::` [*Identifier*](grammar.md#Identifier);
 
-*Actuals* := "`.(`" (*Actual* ("`,`" *Actual*)<sup>\*</sup>)<sup>?</sup> *Ellipsis*<sup>?</sup> "`)`";
+<a name="Actuals"></a>
+*Actuals* := "`.(`" (*Actual* ("`,`" *Actual*)<sup>\*</sup>)<sup>?</sup> [*Ellipsis*](grammar.md#Ellipsis)<sup>?</sup> "`)`";
 
+<a name="Ellipsis"></a>
 *Ellipsis* := "`...`";
 
 ## Grammar Expression Annotations
@@ -330,11 +404,12 @@ expression language.
 
 ----
 
-*Annotation* := *PreprocessingAnnotation*<br>
-    / *DataAnnotation*<br>
-    / *SubGrammarAnnotation*<br>
-    / *VariableAnnotation*<br>
-    / *NestingAnnotation*<br>;
+<a name="Annotation"></a>
+*Annotation* := [*PreprocessingAnnotation*](grammar.md#PreprocessingAnnotation)<br>
+    / [*DataAnnotation*](grammar.md#DataAnnotation)<br>
+    / [*SubGrammarAnnotation*](grammar.md#SubGrammarAnnotation)<br>
+    / [*VariableAnnotation*](grammar.md#VariableAnnotation)<br>
+    / [*NestingAnnotation*](grammar.md#NestingAnnotation)<br>;
 
 
 ### Preprocessing annotations
@@ -347,6 +422,7 @@ to satisfy inverted character sets?
 
 ----
 
+<a name="PreprocessingAnnotation"></a>
 *PreprocessingAnnotation* := "`@CaseFold`" *AnnotationParams*;
 
 ### Data annotations
@@ -355,6 +431,7 @@ Data annotations relate strings in the language to data values.
 
 ----
 
+<a name="DataAnnotation"></a>
 *DataAnnotation* := TODO: See POD.mli;
 
 ### Sub-grammar annotations
@@ -372,6 +449,7 @@ get rid of dangerous constructs when sanitizing.
 
 ----
 
+<a name="SubGrammarAnnotation"></a>
 *SubGrammarAnnotation* := TODO @Denormalized, @Elide;
 
 ### Variable annotations
@@ -380,6 +458,7 @@ TODO
 
 ----
 
+<a name="VariableAnnotation"></a>
 *VariableAnnotation* := TODO: @Scope, @Set, @If;
 
 ### Nesting annotations
@@ -390,6 +469,7 @@ can embed URLs, CSS, JavaScript.
 
 ----
 
+<a name="NestingAnnotation"></a>
 *NestingAnnotation* := TODO: @Embedded, @Until;
 
 
