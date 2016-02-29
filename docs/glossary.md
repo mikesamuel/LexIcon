@@ -1,40 +1,40 @@
 # Glossary
 
-## Application Language
+## <a name="application_language"></a> Application Language
 
 A language that composes or decodes network messages.
 
 Backends generate application language code from LexIcon grammars.
 
-## Message Language
+## <a name="message_language"></a> Message Language
 
 A language that describes the contents of network messages.
 
 Tools generated from LexIcon grammars consume and/or produce strings
 in a message language.
 
-## Grammar Source File
+## <a name="grammar_source_file"></a> Grammar Source File
 
 Explains how to process strings in a message language
 using a grammar-like syntax.
 
-## Tool Specification File
+## <a name="tool_specification_file"></a> Tool Specification File
 
 Explains how an application language backend can turn a grammar source
 file into tools.  This includes application-language backend specific
 options and relates grammar elements to application language namespaces.
 
-## Decoder
+## <a name="decoder"></a> Decoder
 
 A tool that takes a string in the message language and returns a data value.
 
-## Encoder
+## <a name="encoder"></a> Encoder
 
 A tool that takes an application language value and returns a string in a
 reliable subset of the message language that decodes to an equivalent
 data value.
 
-## Sanitizer
+## <a name="sanitizer"></a> Sanitizer
 
 A tool that takes a message language string and returns a string in a
 reliable subset of the message language.
@@ -42,7 +42,7 @@ reliable subset of the message language.
 Typically, sanitizers make a best effort to produce a string with
 "equivalent" semantics, except for removing high-privilege instructions.
 
-## Data Values
+## <a name="data_valu"></a> Data Values
 
 A value that can be encoded or decoded to a string and constructed in
 a form so that application language code can manipulate it or map it to

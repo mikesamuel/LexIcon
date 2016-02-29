@@ -54,8 +54,7 @@ The lexical grammar is regular.
 
 <a name="DelimitedToken"></a>
 *DelimitedToken* := [*DoubleQuotedString*](grammar.md#DoubleQuotedString)<br>
-    / [*SingleQuotedString*](grammar.md#SingleQuotedString)<br>
-    / [*CharacterSet*](grammar.md#CharacterSet);
+    / [*String*](grammar.md#String);
 
 <a name="MetaCharacter"></a>
 *MetaCharacter* := "`\\`" / "`/`" / "`\"`" / "`\'`" / "`[`" / "`]`" / "`.`" / "`-`";
@@ -67,7 +66,7 @@ The lexical grammar is regular.
 <a name="Punctuator"></a>
 *Punctuator* := "`:=`" / "`:=`" / "`++`" / "`--`" / "`+=`" / "`&&`" / "`||`"<br>
     / "`/`" !(`[^*/]`)<br>
-    / ([*MetaCharacter*](grammar.md#MetaCharacter) - *IdentifierCharacter*);
+    / ([*MetaCharacter*](grammar.md#MetaCharacter) - [*IdentifierCharacter*](grammar.md#IdentifierCharacter));
 
 <a name="SingleQuotedString"></a>
 *SingleQuotedString* := "`'`" ([*NormalCharacter*](grammar.md#NormalCharacter) / ([*MetaCharacter*](grammar.md#MetaCharacter) - `['\\]`))<sup>\*</sup> "`'`";
@@ -75,17 +74,21 @@ The lexical grammar is regular.
 <a name="DoubleQuotedString"></a>
 *DoubleQuotedString* := "`\"`" ([*NormalCharacter*](grammar.md#NormalCharacter) / ([*MetaCharacter*](grammar.md#MetaCharacter) - `["\\]`))<sup>\*</sup> "`\"`";
 
-*String* := *SingleQuotedString* / *DoubleQuotedString*;
+<a name="String"></a>
+*String* := [*SingleQuotedString*](grammar.md#SingleQuotedString) / [*DoubleQuotedString*](grammar.md#DoubleQuotedString);
 
 <a name="CharacterSet"></a>
-*CharacterSet* := "`[`" "`^`"<sup>?</sup> *CharacterSetPart*<sup>\*</sup> "`]`";
+*CharacterSet* := "`[`" "`^`"<sup>?</sup> [*CharacterSetPart*](grammar.md#CharacterSetPart)<sup>\*</sup> "`]`";
 
-*CharacterSetPart* := *CharacterRange* / "`[:`" *UnicodeCategory* "`:]`";
+<a name="CharacterSetPart"></a>
+*CharacterSetPart* := [*CharacterRange*](grammar.md#CharacterRange) / "`[:`" *UnicodeCategory* "`:]`";
 
-*CharacterRange* := *CharacterRangeEndPoint* ("`-`" *CharacterRangeEndPoint*)<sup>?</sup>;
+<a name="CharacterRange"></a>
+*CharacterRange* := [*CharacterRangeEndPoint*](grammar.md#CharacterRangeEndPoint) ("`-`" [*CharacterRangeEndPoint*](grammar.md#CharacterRangeEndPoint))<sup>?</sup>;
 
-*CharacterRangeEndPoint* := *NormalCharacter*<br>
-    / *MetaCharacter* - `[\^\-\]\\]`;
+<a name="CharacterRangeEndPoint"></a>
+*CharacterRangeEndPoint* := [*NormalCharacter*](grammar.md#NormalCharacter)<br>
+    / [*MetaCharacter*](grammar.md#MetaCharacter) - `[\^\-\]\\]`;
 
 <a name="Number"></a>
 *Number* := (*Integer* *Fraction*<sup>?</sup> / *Fraction*) *Exponent*<sup>?</sup>?;
@@ -135,9 +138,7 @@ A LexIcon source file consists of
 ----
 
 <a name="CompilationUnit"></a>
-*CompilationUnit* := *BOM*<sup>?</sup> [*Prologue*](grammar.md#Prologue) *Grammar*;
-
-*Grammar* := *Declaration*<sup>\*</sup>;
+*CompilationUnit* := *BOM*<sup>?</sup> [*Prologue*](grammar.md#Prologue) [*Grammar*](grammar.md#Grammar);
 
 ## Prologue
 
@@ -167,7 +168,7 @@ backwards-compatibility and graceful deprecation of features.
 *VarDeclaration* := "`var`" [*VarName*](grammar.md#VarName) "`:`" [*TypeExpr*](grammar.md#TypeExpr) "`;`";
 
 <a name="ImportCall"></a>
-*ImportCall* := "`import`" "`(`" *String* ([*ImportedSymbols*](grammar.md#ImportedSymbols))<sup>?</sup> "`)`";
+*ImportCall* := "`import`" "`(`" [*String*](grammar.md#String) ([*ImportedSymbols*](grammar.md#ImportedSymbols))<sup>?</sup> "`)`";
 
 <a name="ImportedSymbols"></a>
 *ImportedSymbols* := "`,`" *StringArray*;
@@ -209,14 +210,15 @@ Yacc-style parser-generator languages allow grammar authors to write
 semantic actions in the application language.  This makes it hard to
 maintain a grammar for a multi-backend system.
 
-### Declarations.
-
 Instead, we allow both productions and procedures.
 A *production* defines a non-terminal in terms of a grammar expression.
 A *procedure* defines a non-terminal in terms of statements in a
 structured programming language.
 
 ----
+
+<a name="Grammar"></a>
+*Grammar* := [*Declaration*](grammar.md#Declaration)<sup>\*</sup>;
 
 <a name="Declaration"></a>
 *Declaration* := [*Production*](grammar.md#Production) / [*Procedure*](grammar.md#Procedure);
@@ -345,8 +347,7 @@ like `@CaseFold{7Bit}`.
     / "`(`" "`)`"<br>
     / [*Callee*](grammar.md#Callee) [*Actuals*](grammar.md#Actuals)<sup>?</sup><br>
     / [*CharacterSet*](grammar.md#CharacterSet)<br>
-    / [*SingleQuotedString*](grammar.md#SingleQuotedString)<br>
-    / [*DoubleQuotedString*](grammar.md#DoubleQuotedString)<br>
+    / [*String*](grammar.md#String)<br>
     / [*PanicExpr*](grammar.md#PanicExpr);
 
 <a name="PanicExpr"></a>

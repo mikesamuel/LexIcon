@@ -14,8 +14,6 @@ sub escape_html($) {
     return $s;
 }
 
-my $dbg = 1;
-
 sub glossaryTextToKey($) {
     my $t = $_[0];
     $t =~ s/["']//g;
@@ -42,7 +40,6 @@ while (<GLOSSARY>) {
         if (exists($glossaryItems{$key})) {
             print STDERR "glossary.md:$.: ERROR: Duplicate glossary item $text => $key\n";
         } else {
-            #print STDERR "glossary.md:$.: Found glossary item $text\n";
             $glossaryItems{$key} = 1;
         }
     }
@@ -120,13 +117,8 @@ while (my $basename = readdir(DIR)) {
 
             if (m/^\*(\w+)\* :=/) {
                 my $name = $1;
-                if (exists($grammarItems{$name})) {
-                    my $tail = substr $fixed, -20;
-                    $tail =~ s/[\r\n]/ /g;
-                    print "tail of fixed : `$tail`\n";
-                    if ($fixed !~ /<\/a>\s*$/) {
-                        $fixed .= "<a name=\"$name\"></a>\n";
-                    }
+                if (exists($grammarItems{$name}) && $fixed !~ /<\/a>\s*$/) {
+                    $fixed .= "<a name=\"$name\"></a>\n";
                 }
             }
         }
@@ -143,7 +135,7 @@ foreach my $file (keys(%fixedFiles)) {
     print "$file changed\n";
 }
 
-my $commit = $ARGV[1] eq "-c";
+my $commit = $ARGV[0] eq "-c";
 
 foreach my $file (keys(%fixedFiles)) {
     if ($commit) {
@@ -156,5 +148,5 @@ foreach my $file (keys(%fixedFiles)) {
     close (OUT) or die "$!";
 }
 unless ($commit) {
-    print STDERR "Not committing changes\n";
+    print STDERR "Not committing changes\nUse -c to change files in place.";
 }
