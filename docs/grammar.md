@@ -228,7 +228,7 @@ structured programming language.
 *Production* := [*Mods*](grammar.md#Mods) [*ToolKinds*](grammar.md#ToolKinds) [*Identifier*](grammar.md#Identifier) [*Sig*](grammar.md#Sig) "`:=`" [*GrammarExpr*](grammar.md#GrammarExpr);
 
 <a name="Procedure"></a>
-*Procedure* := [*Mods*](grammar.md#Mods) [*ToolKinds*](grammar.md#ToolKinds) [*Identifier*](grammar.md#Identifier) [*Sig*](grammar.md#Sig) "`{`" *StatementBlock* "`}`";
+*Procedure* := [*Mods*](grammar.md#Mods) [*ToolKinds*](grammar.md#ToolKinds) [*Identifier*](grammar.md#Identifier) [*Sig*](grammar.md#Sig) [*Block*](grammar.md#Block);
 
 ### Modifiers
 
@@ -507,38 +507,53 @@ to zero or otherwise spike them.
 
 ----
 
-*Statement* := *Alt*;
+<a name="Statement"></a>
+*Statement* := [*Alt*](grammar.md#Alt);
 
-*Alt* := *Seq* (("`/`" / "`else`") *Alt*)<sup>?</sup>;
+<a name="Alt"></a>
+*Alt* := [*Seq*](grammar.md#Seq) (("`/`" / "`else`") [*Alt*](grammar.md#Alt))<sup>?</sup>;
 
-*Seq := *SimpleStatement* ("`;`" *Seq*)<sup>?</sup><br>
-     / *Block* *RepOp*<sup>?</sup> *Seq*<sup>?</sup>;
+<a name="Seq"></a>
+*Seq* := [*SimpleStatement*](grammar.md#SimpleStatement) ("`;`" [*Seq*](grammar.md#Seq))<sup>?</sup><br>
+     / [*Block*](grammar.md#Block) [*RepOp*](grammar.md#RepOp)<sup>?</sup> [*Seq*](grammar.md#Seq)<sup>?</sup>;
 
-*Block* := "`{`" *Statement*<sup>?</sup> "`}`";
+<a name="Block"></a>
+*Block* := "`{`" [*Statement*](grammar.md#Statement)<sup>?</sup> "`}`";
 
-*SimpleStatement* := *Call* / *Let* / *Loop*<br>
-    / *Mut* / *Panic* / *Require* / *Try* / *Noop*;
+<a name="SimpleStatement"></a>
+*SimpleStatement* := [*Call*](grammar.md#Call) / [*Let*](grammar.md#Let) / [*Loop*](grammar.md#Loop)<br>
+    / [*Mut*](grammar.md#Mut) / [*Panic*](grammar.md#Panic) / [*Require*](grammar.md#Require) / [*Try*](grammar.md#Try) / [*Noop*](grammar.md#Noop);
 
-*Call* := *Callee* *Actuals*;
+<a name="Call"></a>
+*Call* := [*Callee*](grammar.md#Callee) [*Actuals*](grammar.md#Actuals);
 
-*Let* := "`let`" *Identifier* ("`:`" *TypeExpr*)<sup>?</sup> "`=`" *Expr*;
+<a name="Let"></a>
+*Let* := "`let`" [*Identifier*](grammar.md#Identifier) ("`:`" [*TypeExpr*](grammar.md#TypeExpr))<sup>?</sup> "`=`" *Expr*;
 
 <!-- TODO: is "do" an appropriate keyword here? -->
 
-*Loop* := "`do`" *Seq* *LoopCondition*<sup>?</sup>;
+<a name="Loop"></a>
+*Loop* := "`do`" [*Seq*](grammar.md#Seq) [*LoopCondition*](grammar.md#LoopCondition)<sup>?</sup>;
 
+<a name="LoopCondition"></a>
 *LoopCondition* := "`while`" *Predicate*;
 
+<a name="Mut"></a>
 *Mut* := TODO;
 
+<a name="Panic"></a>
 *Panic* := "`panic`";
 
+<a name="Require"></a>
 *Require* := "`require`" *Predicate*;
 
-*Try* := "`try`" *Statement* "`recover`" *MutBlock*;
+<a name="Try"></a>
+*Try* := "`try`" [*Statement*](grammar.md#Statement) "`recover`" [*MutBlock*](grammar.md#MutBlock);
 
-*MutBlock* := "`{`" (*Mut* ("`;`" *Mut*)<sup>\*</sup>)<sup>?</sup> "`}`";
+<a name="MutBlock"></a>
+*MutBlock* := "`{`" ([*Mut*](grammar.md#Mut) ("`;`" [*Mut*](grammar.md#Mut))<sup>\*</sup>)<sup>?</sup> "`}`";
 
+<a name="Noop"></a>
 *Noop* := "`;`";
 
 ## Expressions
