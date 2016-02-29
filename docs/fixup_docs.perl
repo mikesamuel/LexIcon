@@ -46,6 +46,12 @@ while (<GLOSSARY>) {
 }
 close(GLOSSARY);
 
+my %predefinedGrammarItems = (
+    "BOM" => 1,
+    "UnicodeCategory" => 1,
+    "UnicodeScalarValue" => 1,
+    );
+
 my %grammarItems;
 open (GRAMMAR, "<$dir/grammar.md") or die $!;
 while (<GRAMMAR>) {
@@ -66,7 +72,9 @@ sub linkToGrammarItem($$) {
     if (exists($grammarItems{$name})) {
         return "[*$name*](grammar.md#$name)";
     } else {
-        print STDERR "$loc: ERROR: No such grammar item $name\n";
+        unless (exists($predefinedGrammarItems{$name})) {
+            print STDERR "$loc: ERROR: No such grammar item $name\n";
+        }
     }
     return "*$name*";
 }
@@ -148,5 +156,5 @@ foreach my $file (keys(%fixedFiles)) {
     close (OUT) or die "$!";
 }
 unless ($commit) {
-    print STDERR "Not committing changes\nUse -c to change files in place.";
+    print STDERR "Not committing changes\nUse -c to change files in place.\n";
 }

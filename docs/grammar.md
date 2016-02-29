@@ -91,9 +91,6 @@ The lexical grammar is regular.
 *CharacterRangeEndPoint* := [*NormalCharacter*](grammar.md#NormalCharacter)<br>
     / [*MetaCharacter*](grammar.md#MetaCharacter) - `[\^\-\]\\]`;
 
-<a name="Number"></a>
-*Number* := (*Integer* *Fraction*<sup>?</sup> / *Fraction*) *Exponent*<sup>?</sup>?;
-
 <a name="Token"></a>
 *Token* := [*Ignorable*](grammar.md#Ignorable) / [*IdentifierOrKeyword*](grammar.md#IdentifierOrKeyword) / [*DelimitedToken*](grammar.md#DelimitedToken) / [*Number*](grammar.md#Number) / [*Punctuator*](grammar.md#Punctuator);
 
@@ -128,6 +125,29 @@ This grammar is BNF-like but with a few oddities.
    c. a disjunction of character set expressions, or
    d. a subtraction of two character set expressions.
 4. !(x) means negative lookahead. !!(x) is positive lookahead.
+
+As usual, the number grammar is one of the most complicated parts.
+This is identical to the EcmaScript (Java/C without width suffixes) definition.
+
+Signs are part of the expression grammar.
+
+----
+
+<a name="Number"></a>
+*Number* := [*Mantissa*](grammar.md#Mantissa) [*Exponent*](grammar.md#Exponent)<sup>?</sup>?;
+
+<a name="Mantissa"></a>
+*Mantissa* := [*UnsignedDecimal*](grammar.md#UnsignedDecimal) ("`.`" [*Decimal*](grammar.md#Decimal)<sup>\*</sup>)<sup>?</sup><br>
+    / "`.`" [*Decimal*](grammar.md#Decimal)<sup>+</sup>;
+
+<a name="UnsignedDecimal"></a>
+*UnsignedDecimal* := "`0`"<sup>+</sup> | `[1-9]` [*Decimal*](grammar.md#Decimal)<sup>\*</sup>;
+
+<a name="Decimal"></a>
+*Decimal* := `[0-9]`;
+
+<a name="Exponent"></a>
+*Exponent* := `[Ee]` `[+\-]` [*Decimal*](grammar.md#Decimal)<sup>+</sup>;
 
 ## High-level structure
 
@@ -184,7 +204,7 @@ backwards-compatibility and graceful deprecation of features.
 *SymbolicValue* := ("`_`" / [*SymbolicValueName*](grammar.md#SymbolicValueName)) [*IndexHint*](grammar.md#IndexHint)<sup>?</sup>;
 
 <a name="IndexHint"></a>
-*IndexHint* := "`=`" *UnsignedDecimal*;
+*IndexHint* := "`=`" [*UnsignedDecimal*](grammar.md#UnsignedDecimal);
 
 <a name="TypeExpr"></a>
 *TypeExpr* := [*TypeName*](grammar.md#TypeName) [*TypeModifier*](grammar.md#TypeModifier);
@@ -388,7 +408,7 @@ code.
 ----
 
 <a name="Callee"></a>
-*Callee* := (*Namspace* "`.`")<sup>?</sup> [*Identifier*](grammar.md#Identifier) [*ToolKind*](grammar.md#ToolKind)<sup>?</sup> [*Variant*](grammar.md#Variant);
+*Callee* := ([*Namespace*](grammar.md#Namespace) "`.`")<sup>?</sup> [*Identifier*](grammar.md#Identifier) [*ToolKind*](grammar.md#ToolKind)<sup>?</sup> [*Variant*](grammar.md#Variant);
 
 <a name="Variant"></a>
 *Variant* := `::` [*Identifier*](grammar.md#Identifier);
