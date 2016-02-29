@@ -53,7 +53,7 @@ The lexical grammar is regular.
 *IdentifierCharacter* := `[A-Za-z0-9_$]`;
 
 <a name="DelimitedToken"></a>
-*DelimitedToken* := [*DoubleQuotedString*](grammar.md#DoubleQuotedString)<br>
+*DelimitedToken* := [*CharacterSet*](grammar.md#CharacterSet)<br>
     / [*String*](grammar.md#String);
 
 <a name="MetaCharacter"></a>
@@ -319,7 +319,7 @@ like `@CaseFold{7Bit}`.
 ----
 
 <a name="GrammarExpr"></a>
-*GrammarExpr* := *OrExpr*;
+*GrammarExpr* := [*Or*](grammar.md#Or);
 
 <a name="Or"></a>
 *Or* := [*Cat*](grammar.md#Cat) ("`/`" [*Cat*](grammar.md#Cat))<sup>\*</sup>;
