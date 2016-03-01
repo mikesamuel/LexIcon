@@ -95,7 +95,7 @@ The lexical grammar is regular.
     / [*MetaCharacter*](grammar.md#MetaCharacter) - `[\^\-\]\\]`;
 
 <a name="EscapeSequence"></a>
-*EscapeSequence* := "`\`" (`[0btnfr]` / "`x`" Hex2 / "`u`" Hex4 / "`U{`" Hex<sup>+</sup> "`}`");
+*EscapeSequence* := "`\`" (`[0btnfr]` / "`x`" [*Hex2*](grammar.md#Hex2) / "`u`" [*Hex4*](grammar.md#Hex4) / "`U{`" [*Hex*](grammar.md#Hex)<sup>+</sup> "`}`");
 
 <a name="Hex"></a>
 *Hex* := `[0-9A-Fa-f]`;
