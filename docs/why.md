@@ -33,8 +33,9 @@ you.
 
 ----
 
+<a name="checklist"></a>
 ## Programming Language Checklist
-## by Colin McMillen, Jason Reed, and Elly Jones.
+by Colin McMillen, Jason Reed, and Elly Jones.
 
 You appear to be advocating a new:
 
