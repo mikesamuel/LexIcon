@@ -24,6 +24,9 @@ The lexical grammar is regular.
 
 ----
 
+<a name="Token"></a>
+*Token* := [*Ignorable*](grammar.md#Ignorable) / [*IdentifierOrKeyword*](grammar.md#IdentifierOrKeyword) / [*DelimitedToken*](grammar.md#DelimitedToken) / [*Number*](grammar.md#Number) / [*Punctuator*](grammar.md#Punctuator);
+
 <a name="Ignorable"></a>
 *Ignorable* := [*Space*](grammar.md#Space) / [*LineBreak*](grammar.md#LineBreak) / [*Comment*](grammar.md#Comment);
 
@@ -91,11 +94,8 @@ The lexical grammar is regular.
 *CharacterRangeEndPoint* := [*NormalCharacter*](grammar.md#NormalCharacter)<br>
     / [*MetaCharacter*](grammar.md#MetaCharacter) - `[\^\-\]\\]`;
 
-<a name="Token"></a>
-*Token* := [*Ignorable*](grammar.md#Ignorable) / [*IdentifierOrKeyword*](grammar.md#IdentifierOrKeyword) / [*DelimitedToken*](grammar.md#DelimitedToken) / [*Number*](grammar.md#Number) / [*Punctuator*](grammar.md#Punctuator);
-
 <a name="EscapeSequence"></a>
-*EscapeSequence* := "`\`" ("`x`" Hex2 / "`u`" Hex4 / `[0btnfr]` / "`U{`" Hex<sup>+</sup> "`}`");
+*EscapeSequence* := "`\`" (`[0btnfr]` / "`x`" Hex2 / "`u`" Hex4 / "`U{`" Hex<sup>+</sup> "`}`");
 
 <a name="Hex"></a>
 *Hex* := `[0-9A-Fa-f]`;
