@@ -18,7 +18,7 @@ sub glossaryTextToKey($) {
     my $t = $_[0];
     $t =~ s/["']//g;
     $t =~ s/^\s*|\s*$//g;
-    $t =~ s/e?s$//;
+    $t =~ s/[es]*$//;  # simple plural stemmer
     $t =~ s/\s+/_/g;
     $t = "\L$t";
     return $t;

@@ -1,24 +1,24 @@
 # Glossary
 
-## <a name="application_language"></a> Application Language
+## <a name="application_languag"></a> Application Language
 
 A language that composes or decodes network messages.
 
 Backends generate application language code from LexIcon grammars.
 
-## <a name="message_language"></a> Message Language
+## <a name="message_languag"></a> Message Language
 
 A language that describes the contents of network messages.
 
 Tools generated from LexIcon grammars consume and/or produce strings
 in a message language.
 
-## <a name="grammar_source_file"></a> Grammar Source File
+## <a name="grammar_source_fil"></a> Grammar Source File
 
 Explains how to process strings in a message language
 using a grammar-like syntax.
 
-## <a name="tool_specification_file"></a> Tool Specification File
+## <a name="tool_specification_fil"></a> Tool Specification File
 
 Explains how an application language backend can turn a grammar source
 file into tools.  This includes application-language backend specific
@@ -65,3 +65,10 @@ sequence of key/value pairs with 2 or more pairs with equivalent keys.
 TODO: Advice to backend-devs should specify a sensible default policy
 when a decoder produces such pairs and the data value has to be decoded to
 a hashmap or similar structure.
+
+## <a name="code_unit"></a> Code Unit
+
+According to the [Unicode Glossary](http://www.unicode.org/glossary/#code_unit),
+
+> The minimal bit combination that can represent a unit of encoded
+> text for processing or interchange.
