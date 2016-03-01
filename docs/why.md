@@ -24,6 +24,8 @@ application language experts to maintain &#x1d622; code generators:
 if we have to find &#x1d476;(&#x1d62f; &times; &#x1d622;)
 developers skilled in network and application languages.
 
+# Why Not?
+
 LexIcon is a glorified parser-generator, not a general-purpose
 programming language.  It is not suitable for writing complex
 applications, or general systems-programming.  If you're not a
