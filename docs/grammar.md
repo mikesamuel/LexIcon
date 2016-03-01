@@ -553,8 +553,6 @@ zero or otherwise spike them.
 <a name="Let"></a>
 *Let* := "`let`" [*Identifier*](grammar.md#Identifier) ("`:`" [*TypeExpr*](grammar.md#TypeExpr))<sup>?</sup> "`=`" *Expr*;
 
-<!-- TODO: is "do" an appropriate keyword here? -->
-
 <a name="Loop"></a>
 *Loop* := "`loop`" [*Seq*](grammar.md#Seq) [*LoopCondition*](grammar.md#LoopCondition)<sup>?</sup>;
 
@@ -579,9 +577,28 @@ zero or otherwise spike them.
 <a name="Noop"></a>
 *Noop* := "`;`";
 
+## Types
+
+There is separate [types documentation](types.md) which explains the
+details of the type system and how types and expressions relate,
+including classifying types along a number of axes.
+The [*Type*](grammar.md#Type) and [*Expression*](grammar.md#Expression) grammars refer to those axes to
+document what operators expect of their operands,
+but checking that the right types are used in the right places
+is done post-parse.
+
+----
+
+<a name="Type"></a>
+*Type* := TODO;
+
+
 ## Expressions
 
-TODO
+----
+
+<a name="Expression"></a>
+*Expression* := TODO;
 
 
 ## Predicates

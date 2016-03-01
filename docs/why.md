@@ -6,9 +6,9 @@ written in complicated, still-evolving network [message languages](glossary.md#m
 that have a hard time removing features for fear of "breaking the web."
 
 Writing high-quality tools for composing network messages securely is
-hard work and there are a small number of security professionals
-capable of writing these tools, tracking changes to the standards, and
-maintaining library code.
+hard work and there are a small number of security professionals with
+experience writing these tools, tracking changes to the standards and
+the security literature, and maintaining library code.
 
 Every few years there is another [application languages](glossary.md#application_languag)
 that would benefit from high quality security tools & libraries.  Few

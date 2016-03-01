@@ -41,3 +41,56 @@ But procedures do need to communicate results back to callers.
 Instead of relying on global variables and complicated calling conventions,
 there are output parameters -- shallow pointers that are scoped to the block
 in which they are declared and which cannot point to mutable data.
+
+## Type Axes
+
+The type system is relatively straightforward, but we classify types
+along several axes in the hope that this will expose mistaken assumptions
+about operands.
+
+----
+
+**E**xternalizable types describe those values that can be encoded and decoded.
+Backends are responsible for mapping application language values onto
+externalizable types.
+
+**I**nternalizable types describe those values that will not be inputs to
+encoders or outputs from decoders.  Backends can represent these
+however they like since they will be kept internal to the tool code,
+except possibly exposed to overriding `@Extern` code written by
+trusted developers.
+
+----
+
+State**f**ul types describe those values that can change out of band.
+Two observations of the same value might yield different results whether
+due to threads outside the tools control, or a call to a procedure that
+modifies the value.  For example, cursors are stateful since they can
+be incremented or reset.
+
+State**l**ess types describe those values that are not stateful and so
+can be indirected to by a shallow pointer.
+
+----
+
+**C**omplex types describe values that can be decomposed by a cursor like
+input buffers, lists/sequences, and key/value maps.
+
+**S**imple types cannot be so decomposed.
+
+----
+
+The following table shows how much of the type axis space is occupied.
+
+| E/I | F/L | C/S | Exists | Example |
+| --- | --- | --- | ------ | ------- |
+| I   | L   | S   | Yes    | Cursor Snapshots are not externalizable, stateless, and simple. |
+| I   | L   | C   | No     |         |
+| I   | F   | S   | Yes    | Cursors are not externaliable, stateful, and simple. |
+| I   | F   | C   | No     |         |
+| E   | L   | S   | Yes    | numbers, null, code-unit values are externalizable, stateless, and simple. |
+| E   | L   | C   | No     |         |
+| E   | F   | S   | Yes    | The *any* type which describes an encoder input is externalizable, stateful, and simple. |
+| E   | F   | C   | Yes    | Lists and key-value maps are externalizable, stateful, and complex. |
+
+## Types
