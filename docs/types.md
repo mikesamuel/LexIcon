@@ -52,7 +52,9 @@ about operands.
 
 **E**xternalizable types describe those values that can be encoded and decoded.
 Backends are responsible for mapping application language values onto
-externalizable types.
+externalizable types.  Backend must be able to check the
+[RTTI](https://en.wikipedia.org/wiki/Run-time_type_information) of externalizable
+types to safely convert the *Any* type to a more specific externalizable type.
 
 **I**nternalizable types describe those values that will not be inputs to
 encoders or outputs from decoders.  Backends can represent these
@@ -94,3 +96,20 @@ The following table shows how much of the type axis space is occupied.
 | E   | F   | C   | Yes    | Lists and key-value maps are externalizable, stateful, and complex. |
 
 ## Types
+
+| Type        | Axes | Description |
+| ----------- | ---- | ----------- |
+| Any         | EFS  | A top type for encodable values. |
+| Arr of E    | EFC  | Types a list/array/sequence data value. |
+| Rel of E*E  | EFC  | Types a sequence of key/value pairs. |
+| Str of [CU](glossary.md#code_unit) | EFC | An input buffer of code-units. |
+| Int         | ELS  | Types integer values |
+| Num         | ELS  | Types all simple numeric values |
+| Chr         | ELS  | Types all code-units |
+| Enm of DM   | ILS  | Types symbolic (`enum`) values from the specified domain. |
+| Cur of C    | IFS  | Types cursors over complex type C. |
+| Snp of C    | ILS  | Types snapshots of cursors. |
+| Ptr of L    | IFS  | Types shallow pointers to values of type L. |
+| Bool        | ELS  | Types 2 boolean values. |
+| Out of CU   | IFS  | Types append&truncate-only output buffers. |
+| Mat of A*CU | ILS  | Types token match regions of a Str CU. |
