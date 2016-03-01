@@ -47,8 +47,11 @@ The lexical grammar is regular.
 *IdentifierOrKeyword* := ([*IdentifierCharacter*](grammar.md#IdentifierCharacter) - `[0-9]`) [*IdentifierCharacter*](grammar.md#IdentifierCharacter)<sup>\*</sup>;
 
 <a name="Keyword"></a>
-*Keyword* := ("`module`" / "`namespace`" / "`type`" / "`var`" / "`let`" / "`do`" / "`while`" / "`try`")<br>
-    !([*IdentifierCharacter*](grammar.md#IdentifierCharacter));
+*Keyword* := (<br>
+    "`else`" / "`let`" / "`loop`" / "`module`"
+    / "`namespace`" / "`panic`" / "`recover`"<br>
+    / "`require`" / "`try`" / "`type`" / "`var`" / "`while`"<br>
+    ) !([*IdentifierCharacter*](grammar.md#IdentifierCharacter));
 
 <a name="Identifier"></a>
 *Identifier* := !([*Keyword*](grammar.md#Keyword)) [*IdentifierOrKeyword*](grammar.md#IdentifierOrKeyword);
@@ -516,14 +519,14 @@ iteration succeeds and the loop condition evaluates to true then
 another iteration is attempted.  `{...}+` and `{...}*` are syntactic
 sugar for loops, and `{...}?` is syntactic sugar for `{...} / {}`.
 
-All&only statements that have side effects are in the production
-*Mut*.  These statements always succeed.  Any preconditions
-must be checked before execution reaches them.
+All&only statements that have side effects are in [*Mut*](grammar.md#Mut).  These
+statements always succeed.  Any preconditions must be checked before
+execution reaches them.
 
-*Panic* neither passes nor succeeds, but causes execution to
-terminate with no usable result.  TODO: advice for backend
-implementors -- on panic, set the length of output buffers
-to zero or otherwise spike them.
+The [*Panic*](grammar.md#Panic) statement neither passes nor succeeds, but causes
+execution to terminate with no usable result.  TODO: advice for
+backend implementors -- on panic, set the length of output buffers to
+zero or otherwise spike them.
 
 ----
 
@@ -553,7 +556,7 @@ to zero or otherwise spike them.
 <!-- TODO: is "do" an appropriate keyword here? -->
 
 <a name="Loop"></a>
-*Loop* := "`do`" [*Seq*](grammar.md#Seq) [*LoopCondition*](grammar.md#LoopCondition)<sup>?</sup>;
+*Loop* := "`loop`" [*Seq*](grammar.md#Seq) [*LoopCondition*](grammar.md#LoopCondition)<sup>?</sup>;
 
 <a name="LoopCondition"></a>
 *LoopCondition* := "`while`" *Predicate*;

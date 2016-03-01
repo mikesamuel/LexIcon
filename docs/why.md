@@ -6,8 +6,8 @@ written in complicated, still-evolving network [message languages](glossary.md#m
 that have a hard time removing features for fear of "breaking the web."
 
 Writing high-quality tools for composing network messages securely is
-tough and there are a small number of security professionals capable
-of writing these tools, tracking changes to the standards, and
+hard work and there are a small number of security professionals
+capable of writing these tools, tracking changes to the standards, and
 maintaining library code.
 
 Every few years there is another [application languages](glossary.md#application_languag)
@@ -19,7 +19,7 @@ exploits.
 
 This project hopes to enable a small group of network language experts
 to maintain &#x1d62f; network language grammars, and a small group of
-application language experts can maintain &#x1d622; code generators:
+application language experts to maintain &#x1d622; code generators:
 &#x1d476;(&#x1d62f; + &#x1d622;).  We won't get quality security tools
 if we have to find &#x1d476;(&#x1d62f; &times; &#x1d622;)
 developers skilled in network and application languages.
