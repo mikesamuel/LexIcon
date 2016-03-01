@@ -30,7 +30,7 @@ A tool that takes a string in the message language and returns a data value.
 
 ## <a name="encoder"></a> Encoder
 
-A tool that takes an application language value and returns a string in a
+A tool that takes an data value and returns a string in a
 reliable subset of the message language that decodes to an equivalent
 data value.
 
@@ -50,17 +50,17 @@ an application domain object.
 
 For our purposes, data values are acyclic objects consisting of
 
-1. Strings of code-points.
-2. Simple Numbers.
-3. Boolean values.
-4. The special value `null`
-5. Lists or sequences of data values.
+1. Strings,
+2. Simple Numbers,
+3. Booleans,
+4. The special value `null`,
+5. Lists or sequences of data values,
 6. "Key-value maps": binary relations between data values.
 
 With the additional restrictions that the left of binary relations are strings,
 this is all the values that can be encoded to JSON and decoded from it.
 
-"Key-value maps" is in square quotes because a decoder might deliver a
+"Key-value maps" is in scare quotes because a decoder might deliver a
 sequence of key/value pairs with 2 or more pairs with equivalent keys.
 TODO: Advice to backend-devs should specify a sensible default policy
 when a decoder produces such pairs and the data value has to be decoded to
