@@ -70,7 +70,7 @@ Unfortunately, your language (has/lacks):
 
 ```
 [ ] comprehensible syntax  [+] semicolons  [ ] significant whitespace  [ ] macros
-[ ] implicit type conversion  [ ] explicit casting  [H] type inference
+[ ] implicit type conversion  [ ] explicit casting  [+] type inference
 [ ] goto  [ ] exceptions  [ ] closures  [ ] tail recursion  [ ] coroutines
 [ ] reflection  [ ] subtyping  [ ] multiple inheritance  [ ] operator overloading
 [ ] algebraic datatypes  [ ] recursive types  [ ] polymorphic types
