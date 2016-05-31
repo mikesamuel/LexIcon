@@ -97,19 +97,19 @@ The following table shows how much of the type axis space is occupied.
 
 ## Types
 
-| Type        | Axes | Description |
-| ----------- | ---- | ----------- |
-| Any         | EFS  | A top type for encodable values. |
-| Arr of E    | EFC  | Types a list/array/sequence data value. |
-| Rel of E*E  | EFC  | Types a sequence of key/value pairs. |
-| Str of [CU](glossary.md#code_unit) | EFC | An input buffer of code-units. |
-| Int         | ELS  | Types integer values |
-| Num         | ELS  | Types all simple numeric values |
-| Chr         | ELS  | Types all code-units |
-| Enm of DM   | ILS  | Types symbolic (`enum`) values from the specified domain. |
-| Cur of C    | IFS  | Types cursors over complex type C. |
-| Snp of C    | ILS  | Types snapshots of cursors. |
-| Ptr of L    | IFS  | Types shallow pointers to values of type L. |
-| Bool        | ELS  | Types 2 boolean values. |
-| Out of CU   | IFS  | Types append&truncate-only output buffers. |
-| Mat of A*CU | ILS  | Types token match regions of a Str CU. |
+| Type        | Long Name    | Axes | Description |
+| ----------- | ------------ | ---- | ----------- |
+| Any         | Any          | EFS  | A top type for encodable values. |
+| Arr of E    | Array        | EFC  | Types a list/array/sequence data value. |
+| Rel of E*E  | Relation     | EFC  | Types a sequence of key/value pairs. |
+| Str of [CU](glossary.md#code_unit) | String | EFC | An input buffer of code-units. |
+| Int         | Integer      | ELS  | Types integer values |
+| Num         | Number       | ELS  | Types all simple numeric values |
+| Chr         | Character    | ELS  | Types all code-units |
+| Enm of DM   | Enum         | ILS  | Types symbolic (`enum`) values from the specified domain. |
+| Cur of C    | Cursor       | IFS  | Types cursors over complex type C. |
+| Snp of C    | Snapshot     | ILS  | Types snapshots of cursors. |
+| Ptr of L    | Pointer      | IFS  | Types shallow pointers to values of type L. |
+| Bool        | Boolean      | ELS  | Types 2 boolean values. |
+| Out of CU   | OutputBuffer | IFS  | Types append&truncate-only output buffers. |
+| Mat of A*CU | MatchResult  | ILS  | Types token match regions of a Str CU. |
