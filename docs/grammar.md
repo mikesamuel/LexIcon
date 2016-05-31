@@ -48,9 +48,9 @@ The lexical grammar is regular.
 
 <a name="Keyword"></a>
 *Keyword* := (<br>
-    "`else`" / "`let`" / "`loop`" / "`module`"
-    / "`namespace`" / "`panic`" / "`recover`"<br>
-    / "`require`" / "`try`" / "`type`" / "`var`" / "`while`"<br>
+    "`else`" / "`false`" / "`is`" / "`let`" / "`loop`" / "`module`"<br>
+    / "`namespace`" / "`new`" / "`panic`" / "`recover`" / "`require`"<br>
+    / "`true`" / "`try`" / "`type`" / "`var`" / "`while`"<br>
     ) !([*IdentifierCharacter*](grammar.md#IdentifierCharacter));
 
 <a name="Identifier"></a>
@@ -899,5 +899,5 @@ lacks
     / "`(`" [*OrRegex*](grammar.md#OrRegex) "`)`"<br>
     / [*EscapeSequence*](grammar.md#EscapeSequence)<br>
     / "`.`"<br>
-    / `[^\^()\[\]{}?*+".]`<br>
+    / `[^\^()\[\]{}\\?*+".]`<br>
     ;
