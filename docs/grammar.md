@@ -646,25 +646,36 @@ used to C++ operator precedence.
 
 | Operators | Meaning | Precedence |
 | --------- | ------- | ---------- |
-| a "`||`" b | Logical OR | Lowest |
-| a "`&&`" b | Logical AND | |
-| a "`|`" b | Set union | |
-| a "`&`" b | Set intersection | |
+| a `.` property, a `[` s `:` e `]` | Property access, slice | Highest |
+| "`!`" a, "`-`" a, "`*`" a | Inversion, negation, dereference | |
+| a "`*`" b, a "`/`" b, a "`%`" b | Numeric multiplication, &c. | |
+| a "`+`" b, a "`-`" b | Numeric sum, difference |
+| a "`<<`" b, a "`>>`" b, a "`>>>`" b
 | a "`<`" b, a "`<=`" b, &c. | Comparison | |
 | a "`==`" b, a "`!=`" b | Equivalence |
-| a "`+`" b, a "`-`" b | Numeric sum, difference |
-| a "`*`" b, a "`/`" b, a "`%`" b | Numeric multiplication, &c. | |
-| "`!`" a, "`-`" a, "`*`" a | Inversion, negation, dereference | |
-| a `.` property, a `[` s `:` e `]` | Property access, slice | Highest |
+| a "`&`" b | Set intersection | |
+| a "`^`" b | Set exclusive or | |
+| a "`|`" b | Set union | |
+| a "`&&`" b | Logical AND | |
+| a "`||`" b | Logical OR | Lowest |
 
-Since there are no assignment operators, all operators
-are left associative.  The grammar below treats all operators as nary
-to avoid LR.
+Unless otherwise noted, all operators are left associative.  The
+grammar below treats all left-associative operators as n-ary to avoid
+LR.
 
 ----
 
 <a name="Expression"></a>
-*Expression* := [*OrExpr*](grammar.md#OrExpr);
+*Expression* := [*HookExpr*](grammar.md#OrExpr);
+
+----
+
+The hook operator has the same meaning as in C.
+
+----
+
+<a name="HookExpr"></a>
+*HookExpr* := [*OrExpr*](grammar.md#OrExpr) ("`?`" *OrExpr "`:`" [*HookExpr*](grammar.md#HookExpr))<sup>?</sup>;
 
 ----
 
@@ -685,7 +696,10 @@ Sets of enum values and integers can be operated on like bit-sets.
 ----
 
 <a name="UnionExpr"></a>
-*UnionExpr* := [*InterExpr*](grammar.md#InterExpr) (!("`||`") "`|`" [*InterExpr*](grammar.md#InterExpr))<sup>\*</sup>;
+*UnionExpr* := [*XorExpr*](grammar.md#XorExpr) (!("`||`") "`|`" [*XorExpr*](grammar.md#XorExpr))<sup>\*</sup>;
+
+<a name="XorExpr"></a>
+*XorExpr* := [*InterExpr*](grammar.md#InterExpr) ("`^`" [*InterExpr*](grammar.md#InterExpr))<sup>\*</sup>;
 
 <a name="InterExpr"></a>
 *InterExpr* := [*CmpExpr*](grammar.md#CmpExpr) (!("`&&`") "`&`" [*CmpExpr*](grammar.md#CmpExpr))<sup>\*</sup>;
@@ -707,16 +721,22 @@ the string that matches the regular expression.
 ----
 
 <a name="CmpExpr"></a>
-*CmpExpr* := [*EquivExpr*](grammar.md#EquivExpr) [*CmpRhs*](grammar.md#CmpRhs)<sup>\*</sup>;
+*CmpExpr* := [*ShiftExpr*](grammar.md#ShiftExpr) [*CmpRhs*](grammar.md#CmpRhs)<sup>\*</sup>;
 
 <a name="CmpRhs"></a>
-*CmpRhs* := [*CmpOp*](grammar.md#CmpOp) [*EquivExpr*](grammar.md#EquivExpr)
+*CmpRhs* := [*CmpOp*](grammar.md#CmpOp) [*ShiftExpr*](grammar.md#ShiftExpr)
     / "`is`" [*Type*](grammar.md#Type)<br>
     / "`=~`" [*Regex*](grammar.md#Regex)<br>
     ;
 
 <a name="CmpOp"></a>
-*CmpOp* := "`<=`" / "`<`" / "`>=`" / "`>`";
+*CmpOp* := "`<=`" / !("`<<`") "`<`" / "`>=`" / !("`>>`") "`>`";
+
+<a name="ShiftExpr"></a>
+*ShiftExpr* := [*EquivExpr*](grammar.md#EquivExpr) ([*ShiftOp*](grammar.md#ShiftOp) [*EquivExpr*](grammar.md#EquivExpr))<sup>\*</sup>;
+
+<a name="ShiftOp"></a>
+*ShiftOp* := "`<<`" / "`>>>`" / "`>>`";
 
 <a name="EquivExpr"></a>
 *EquivExpr* := [*SumExpr*](grammar.md#SumExpr) ( [*SumExpr*](grammar.md#SumExpr))<sup>\*</sup>;
