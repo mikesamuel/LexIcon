@@ -1,7 +1,7 @@
 # Grammar
 
 This describes the Grammar of a LexIcon source file.
-Terms are defined in [the glossary][glossary.md].
+Terms are defined in [the glossary](glossary.md).
 
 LexIcon Grammar source files have names ending in `.lxs`.
 
