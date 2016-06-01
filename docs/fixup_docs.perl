@@ -85,7 +85,7 @@ sub linkToGlossaryItem($$) {
     my $key = glossaryTextToKey($text);
     if (exists($glossaryItems{$key})) {
         return "[$text](glossary.md#$key)";
-    } else {
+    } elsif ($key ne "the_glossary") {
         print STDERR "$loc: ERROR: No such glossary item $key\n";
     }
     return "[$text](glossary.md)";

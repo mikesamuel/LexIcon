@@ -77,7 +77,7 @@ The lexical grammar is regular.
     / "`...`" / "`.`"<br>
     / "`-`"<br>
     / "`/`" !(`[^*/]`)<br>
-    / *UnicodeScalarValue* - *Space* - *LineBreakCharacter* - *MetaCharacter* - *IdentifierCharacter*;
+    / *UnicodeScalarValue* - [*Space*](grammar.md#Space) - [*LineBreakCharacter*](grammar.md#LineBreakCharacter) - [*MetaCharacter*](grammar.md#MetaCharacter) - [*IdentifierCharacter*](grammar.md#IdentifierCharacter);
 
 <a name="SingleQuotedString"></a>
 *SingleQuotedString* := "`'`" ([*NormalCharacter*](grammar.md#NormalCharacter) / ([*MetaCharacter*](grammar.md#MetaCharacter) - `['\\]`))<sup>\*</sup> "`'`";
@@ -635,10 +635,91 @@ the right types are used in the right places is done post-parse.
 ----
 
 <a name="Type"></a>
-*Type* := TODO;
+*Type* := [*AnyType*](grammar.md#AnyType)<br>
+    / [*ArrType*](grammar.md#ArrType)<br>
+    / [*BoolType*](grammar.md#BoolType)<br>
+    / [*ChrType*](grammar.md#ChrType)<br>
+    / [*CurType*](grammar.md#CurType)<br>
+    / [*EnmType*](grammar.md#EnmType)<br>
+    / [*IntType*](grammar.md#IntType)<br>
+    / [*MatType*](grammar.md#MatType)<br>
+    / [*NumType*](grammar.md#NumType)<br>
+    / [*OutType*](grammar.md#OutType)<br>
+    / [*PtrType*](grammar.md#PtrType)<br>
+    / [*RelType*](grammar.md#RelType)<br>
+    / [*SnpType*](grammar.md#SnpType)<br>
+    / [*StrType*](grammar.md#StrType)<br>
+    ;
+
+<a name="CType"></a>
+*CType* := [*ArrType*](grammar.md#ArrType) / [*RelType*](grammar.md#RelType) / [*StrType*](grammar.md#StrType);
+
+<a name="EType"></a>
+*EType* := [*AnyType*](grammar.md#AnyType) / [*ArrType*](grammar.md#ArrType) / [*BoolType*](grammar.md#BoolType) / [*ChrType*](grammar.md#ChrType)<br>
+    / [*IntType*](grammar.md#IntType) / [*NumType*](grammar.md#NumType) / [*RelType*](grammar.md#RelType);
+
+<a name="FType"></a>
+*FType* := [*AnyType*](grammar.md#AnyType) / [*ArrType*](grammar.md#ArrType) / [*CurType*](grammar.md#CurType) / [*OutType*](grammar.md#OutType) / [*PtrType*](grammar.md#PtrType) / [*RelType*](grammar.md#RelType);
+
+<a name="IType"></a>
+*IType* := [*CurType*](grammar.md#CurType) / [*EnmType*](grammar.md#EnmType) / [*MatType*](grammar.md#MatType) / [*OutType*](grammar.md#OutType) / [*PtrType*](grammar.md#PtrType) / [*SnpType*](grammar.md#SnpType);
+
+<a name="LType"></a>
+*LType* := [*BoolType*](grammar.md#BoolType) / [*ChrType*](grammar.md#ChrType) / [*EnmType*](grammar.md#EnmType) / [*IntType*](grammar.md#IntType)<br>
+    / [*MatType*](grammar.md#MatType) / [*NumType*](grammar.md#NumType) / [*SnpType*](grammar.md#SnpType);
+
+<a name="SType"></a>
+*SType* := [*AnyType*](grammar.md#AnyType) / [*BoolType*](grammar.md#BoolType) / [*ChrType*](grammar.md#ChrType) / [*CurType*](grammar.md#CurType) / [*EnmType*](grammar.md#EnmType)<br>
+    / [*IntType*](grammar.md#IntType) / [*MatType*](grammar.md#MatType) / [*NumType*](grammar.md#NumType) / [*OutType*](grammar.md#OutType) / [*PtrType*](grammar.md#PtrType) / [*SnpType*](grammar.md#SnpType);
+
+<a name="AnyType"></a>
+*AnyType* := "`any`";
+
+<a name="ArrType"></a>
+*ArrType* := [*EType*](grammar.md#EType) "`array`";
+
+<a name="BoolType"></a>
+*BoolType* := "`bool`";
+
+<a name="ChrType"></a>
+*ChrType* := *"`char`";
+
+<a name="CurType"></a>
+*CurType* := [*CType*](grammar.md#CType) "`cursor`";
+
+<a name="EnmType"></a>
+*EnmType* := [*ExtTypeExpr*](grammar.md#ExtTypeExpr) "`enum`";
+
+<a name="IntType"></a>
+*IntType* := "`int`";
+
+<a name="MatType"></a>
+*MatType* := [*AnchorKind*](grammar.md#AnchorKind) [*CodeUnitKind*](grammar.md#CodeUnitKind) "`match`";
+
+<a name="NumType"></a>
+*NumType* := "`num`";
+
+<a name="OutType"></a>
+*OutType* := [*CodeUnitKind*](grammar.md#CodeUnitKind) "`output`";
 
 <a name="PtrType"></a>
-*PtrType* := TODO;
+*PtrType* := [*LType*](grammar.md#LType) "`ptr`";
+
+<a name="RelType"></a>
+*RelType* := [*EType*](grammar.md#EType) "`*`" [*EType*](grammar.md#EType) "`rel`";
+
+<a name="SnpType"></a>
+*SnpType* := [*CType*](grammar.md#CType) "`snapshot`";
+
+<a name="StrType"></a>
+*StrType* := [*CodeUnitKind*](grammar.md#CodeUnitKind) "`string`";
+
+<a name="AnchorKind"></a>
+*AnchorKind* := "`unanchored`"<sup>?</sup>;
+
+<a name="CodeUnitKind"></a>
+*CodeUnitKind* := "`octet`" / "`utf16"` / "`unicode`" / "`octettriplet`";
+
 
 ## Expressions
 
@@ -715,8 +796,8 @@ Integers can be compared as can cursors and snapshots.
 The `is` operator tests that the result of an expression can be operated upon
 as a member of the type.
 
-When a platform represents a `Str _` type as a series of octets, then
-`x is Str Utf8` tests whether `x` is an octet series, not that it is a
+When a platform represents a string type as a series of octets, then
+`x is UTF8 string` tests whether `x` is an octet series, not that it is a
 series of minimally-encoded Utf8 sequences.
 
 The `=~` operator yields a result of type `Mat` describing the region, if any, of

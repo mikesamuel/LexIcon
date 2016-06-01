@@ -101,15 +101,15 @@ The following table shows how much of the type axis space is occupied.
 | ----------- | ------------ | ---- | ----------- |
 | Any         | Any          | EFS  | A top type for encodable values. |
 | Arr of E    | Array        | EFC  | Types a list/array/sequence data value. |
-| Rel of E*E  | Relation     | EFC  | Types a sequence of key/value pairs. |
-| Str of [CU](glossary.md#code_unit) | String | EFC | An input buffer of code-units. |
-| Int         | Integer      | ELS  | Types integer values |
-| Num         | Number       | ELS  | Types all simple numeric values |
-| Chr         | Character    | ELS  | Types all code-units |
-| Enm of DM   | Enum         | ILS  | Types symbolic (`enum`) values from the specified domain. |
-| Cur of C    | Cursor       | IFS  | Types cursors over complex type C. |
-| Snp of C    | Snapshot     | ILS  | Types snapshots of cursors. |
-| Ptr of L    | Pointer      | IFS  | Types shallow pointers to values of type L. |
 | Bool        | Boolean      | ELS  | Types 2 boolean values. |
-| Out of CU   | OutputBuffer | IFS  | Types append&truncate-only output buffers. |
+| Chr         | Character    | ELS  | Types all code-units |
+| Cur of C    | Cursor       | IFS  | Types cursors over complex type C. |
+| Enm of DM   | Enum         | ILS  | Types symbolic (`enum`) values from the specified domain. |
+| Int         | Integer      | ELS  | Types integer values |
 | Mat of A*CU | MatchResult  | ILS  | Types token match regions of a Str CU. |
+| Num         | Number       | ELS  | Types all simple numeric values |
+| Out of CU   | OutputBuffer | IFS  | Types append&truncate-only output buffers. |
+| Ptr of L    | Pointer      | IFS  | Types shallow pointers to values of type L. |
+| Rel of E*E  | Relation     | EFC  | Types a sequence of key/value pairs. |
+| Snp of C    | Snapshot     | ILS  | Types snapshots of cursors. |
+| Str of [CU](glossary.md#code_unit) | String | EFC | An input buffer of code-units. |
