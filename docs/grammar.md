@@ -48,7 +48,7 @@ The lexical grammar is regular.
 
 <a name="Keyword"></a>
 *Keyword* := (<br>
-    "`else`" / "`false`" / "`is`" / "`let`" / "`loop`" / "`module`"<br>
+    "`else`" / "`false`" / "`import`" / "`is`" / "`let`" / "`loop`" / "`module`"<br>
     / "`namespace`" / "`new`" / "`panic`" / "`recover`" / "`require`"<br>
     / "`true`" / "`try`" / "`type`" / "`var`" / "`while`"<br>
     ) !([*IdentifierCharacter*](grammar.md#IdentifierCharacter));
@@ -71,9 +71,13 @@ The lexical grammar is regular.
     / [*EscapeSequence*](grammar.md#EscapeSequence);
 
 <a name="Punctuator"></a>
-*Punctuator* := "`:=`" / "`:=`" / "`++`" / "`--`" / "`+=`" / "`&&`" / "`||`"<br>
+*Punctuator* := "`:=`" / "`::`" / "`++`" / "`--`" / "`+=`" / "`&&`" / "`||`"<br>
+    / "`<=`" / "`<<`" / "`>=`" / "`>>>`" / "`>>`"<br>
+    / "`==`" / "`!=`" / "`=~`"<br>
+    / "`...`" / "`.`"<br>
+    / "`-`"<br>
     / "`/`" !(`[^*/]`)<br>
-    / ([*MetaCharacter*](grammar.md#MetaCharacter) - [*IdentifierCharacter*](grammar.md#IdentifierCharacter));
+    / *UnicodeScalarValue* - *Space* - *LineBreakCharacter* - *MetaCharacter* - *IdentifierCharacter*;
 
 <a name="SingleQuotedString"></a>
 *SingleQuotedString* := "`'`" ([*NormalCharacter*](grammar.md#NormalCharacter) / ([*MetaCharacter*](grammar.md#MetaCharacter) - `['\\]`))<sup>\*</sup> "`'`";
@@ -428,7 +432,7 @@ code.
 *Callee* := ([*Namespace*](grammar.md#Namespace) "`.`")<sup>?</sup> [*Identifier*](grammar.md#Identifier) [*ToolKind*](grammar.md#ToolKind)<sup>?</sup> [*Variant*](grammar.md#Variant);
 
 <a name="Variant"></a>
-*Variant* := `::` [*Identifier*](grammar.md#Identifier);
+*Variant* := "`::`" [*Identifier*](grammar.md#Identifier);
 
 <a name="Actuals"></a>
 *Actuals* := "`.(`" ([*Actual*](grammar.md#Actual) ("`,`" [*Actual*](grammar.md#Actual))<sup>\*</sup>)<sup>?</sup> [*Ellipsis*](grammar.md#Ellipsis)<sup>?</sup> "`)`";
@@ -612,7 +616,7 @@ zero or otherwise spike them.
 *Try* := "`try`" [*Statement*](grammar.md#Statement) "`recover`" [*MutBlock*](grammar.md#MutBlock);
 
 <a name="MutBlock"></a>
-*MutBlock* := "`{`" ([*Mut*](grammar.md#Mut) ("`;`" [*Mut*](grammar.md#Mut))<sup>\*</sup>)<sup>?</sup> "`}`";
+*MutBlock* := "`{`" ([*Mut*](grammar.md#Mut) ("`;`" [*Mut*](grammar.md#Mut))<sup>\*</sup>)<sup>?</sup> "`;`"<sup>?</sup> "`}`";
 
 <a name="Noop"></a>
 *Noop* := "`;`";
@@ -790,17 +794,17 @@ Prefix operators.
 `.` is used to access a lot of properties.  There are no user defined complex
 types, so there is a closed set of properties.
 
-| Container type | Member name | Member type |
-| -------------- | ----------- | ----------- |
-| Snp            | `.index`    | Int         |
-| Snp            | `.limit`    | Int         |
-| Str            | `.start`    | Snp         |
-| Str            | `.end`      | Snp         |
-| Mat            | `.start`    | Snp         |
-| Mat            | `.end`      | Snp         |
-| Mat            | `.matched`  | Bool        |
-| Str            | `[`s`:`e`]` | Str         |
-| Out            | `[`s`:`e`]` | Str         |
+| Container type | Member name  | Member type |
+| -------------- | ------------ | ----------- |
+| Snp            | `.index`     | Int         |
+| Snp            | `.limit`     | Int         |
+| Str            | `.start`     | Snp         |
+| Str            | `.end`       | Snp         |
+| Mat            | `.start`     | Snp         |
+| Mat            | `.end`       | Snp         |
+| Mat            | `.matched`   | Bool        |
+| Str            | `.(`s`:`e`)` | Str         |
+| Out            | `.(`s`:`e`)` | Str         |
 
 ----
 
@@ -809,7 +813,7 @@ types, so there is a closed set of properties.
 
 <a name="MemberAccess"></a>
 *MemberAccess* := "`.`" [*Identifier*](grammar.md#Identifier)<br>
-    / "`[`" [*Expression*](grammar.md#Expression) "`:`" [*Expression*](grammar.md#Expression)<sup>?</sup> "`]`";
+    / "`.`" "`(`" [*Expression*](grammar.md#Expression) "`:`" [*Expression*](grammar.md#Expression)<sup>?</sup> "`)`";
 
 ----
 
@@ -893,10 +897,14 @@ lacks
 5. It lacks a way to turn off single-line mode --
    "`^`" only matches at beginning of input, not start of line.
 
+A regex literal consists of two tokens: `re` followed by a quoted string.
+The additional grammar constrains placed on the content of the string can
+be checked in a post-parse pass.
+
 ----
 
 <a name="Regex"></a>
-*Regex* := "`re"`" [*OrRegex*](grammar.md#OrRegex)<sup>+</sup> "`"`";
+*Regex* := "`re`" "`"` [*OrRegex*](grammar.md#OrRegex)<sup>+</sup> "`"`";
 
 <a name="RegexBody"></a>
 *RegexBody* := [*OrRegex*](grammar.md#OrRegex)<br>
