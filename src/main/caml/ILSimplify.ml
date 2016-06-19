@@ -588,27 +588,28 @@ let split_common_prefix_and_suffix succeeds a b = begin
         | IL.Nand [IL.Nand qs] ->
           List.fold_left (fun ls_rev q -> (IL.Cond (m, q))::ls_rev) ls_rev qs
         | _                    -> s::ls_rev)
-    | _                  -> s::ls_rev in
+    | _                  -> s::ls_rev
+  in
   (* Evaluating [List.rev (enumerate_rev [] s)] in sequence is equivalent to
-      evaluating [s].
+     evaluating [s].
 
-      This breaks a statement into a list of simple statements so that we can
-      scan from ends to find common elements.
+     This breaks a statement into a list of simple statements so that we can
+     scan from ends to find common elements.
 
-      It turns predicates like [require (a && b)] into [require a; require b]
-      since the code generators often produce code like
-      {[
-        alt {
-          {
-            require empty (x) && x in ...;
-            ...
-          } else {
-            require empty (x) && x in ...;
-            ...
-          } else ...
-        }
-      ]}
-      and we want to factor out the empty check.
+     It turns predicates like [require (a && b)] into [require a; require b]
+     since the code generators often produce code like
+     {[
+       alt {
+         {
+           require empty (x) && x in ...;
+           ...
+         } else {
+           require empty (x) && x in ...;
+           ...
+         } else ...
+       }
+     ]}
+     and we want to factor out the empty check.
   *)
 
   let split_common_prefix = ListUtil.split_common_prefix IL.Equal.stmt in

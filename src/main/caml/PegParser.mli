@@ -85,7 +85,6 @@ module State : sig
      *)
     | Panic         of 'meta
     (** [Panic] aborts processing abruptly. *)
-
   and ('meta, 'operator) machine = {
     meta : 'meta;
     name : Identifier.t;

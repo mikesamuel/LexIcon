@@ -427,6 +427,7 @@ module TraceNum : sig
   val of_int : int -> t
   val as_int : t -> int
 
+  module Map : MapUtil.S with type key = t
   module Set : SetUtil.S with type elt = t
 end = struct
   type t = int
@@ -450,6 +451,7 @@ end = struct
   let of_int i = i
   let as_int i = i
 
+  module Map = IntMap
   module Set = IntSet
 end
 
@@ -672,8 +674,8 @@ end = struct
           | _ -> ti
       end
     end in
-    (** Given a trace, returns the start of the chain that includes the trace.
-        @param seen is used to identify loops. *)
+    (* Given a trace, returns the start of the chain that includes the trace.
+       @param seen is used to identify loops. *)
 
     let rec expand_chain_right ti chain_rev = begin
       let _, _, _, next_idx_opt = trace_info ti in
@@ -688,7 +690,7 @@ end = struct
           expand_chain_right next_idx (next_idx::chain_rev)
         | _ -> List.rev chain_rev
     end in
-    (** Expands a partial trace to the right. *)
+    (* Expands a partial trace to the right. *)
 
     let merged_traces_rev, _, merged = ArrayUtil.fold_left_i
       (fun i ((merged_traces_rev, indices_in_merged_traces, merged) as x) _ ->
@@ -1032,8 +1034,8 @@ let make (IL.Program (_, functions, start_fn_idx) as program) obs = begin
         );
         alt_join_line nested_alt_start
     in
-    (** The end line after the end of an alt taking into account
-        right-nesting. *)
+    (* The end line after the end of an alt taking into account
+       right-nesting. *)
     let yes _ = true in
     let fails  (_, k) = (0 = TraceKind.compare k TraceKind.Failing) in
     let passes (_, k) = (0 = TraceKind.compare k TraceKind.Passing) in

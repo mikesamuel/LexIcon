@@ -101,7 +101,7 @@ end = struct
                   raise (Failures.No_such_production
                       (R.source_pos r_meta, raw_name))) in
               let contextual_name = Identifier.suffix raw_name suffix in
-              (** Store an entry so recursive references are rewritten. *)
+              (* Store an entry so recursive references are rewritten. *)
               let p = G.Production (base_m, contextual_name, base_body) in
               prods := Identifier.Map.add raw_name p !prods;
               let new_body = walk base_body scope in

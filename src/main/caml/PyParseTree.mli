@@ -203,6 +203,7 @@ end
 
 module BinaryOp : sig
   type t = py_binop
+
   val compare : t Cmp.t  (** By precedence *)
 
   val stringer : t Stringer.t

@@ -212,6 +212,7 @@ module TraceNum : sig
   val compare : t Cmp.t
   val equal : t -> t -> bool
 
+  module Map : MapUtil.S with type key = t
   module Set : SetUtil.S with type elt = t
 end
 (** Serial number for a trace. *)
@@ -223,7 +224,6 @@ module Trace : sig
     kind:          TraceKind.t;
     lines_incl:    'm Line.t list;
     (** Non-empty list of program lines that can be executed in order. *)
-
     end_line_excl: 'm Line.t;
     (** A final line that is not actually part of the trace, but serves to
         connect the trace to other traces -- a trace that ends with line L

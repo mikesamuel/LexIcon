@@ -87,6 +87,7 @@ module ProgramBuilder : sig
     t_inp_cursor_ : typ;
     t_inp_snapshot_ : typ;
     t_out_buffer_ : typ;
+    t_out_snapshot_ : typ;
     t_match_ : typ;
 
     re_dot_ : regex;

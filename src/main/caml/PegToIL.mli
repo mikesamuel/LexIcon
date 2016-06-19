@@ -18,22 +18,13 @@
 (** Compile {!PegParser}s to the intermediate language. *)
 
 
-module DebugHooks : sig
-  module InternalId : SnapshotRecoverGraph.NODE_VALUE
-
-  module SnapshotRecoverGraph : SnapshotRecoverGraph.S
-    with module Scope = Scope.F.Idx
-    and  module VarName = Scope.L.Idx
-    and  module NodeValue = InternalId
-end
-
 module Opts : sig
   type t = {
     log_dot       : (PegILStmtGraph.t -> unit) option;
     (** Receives the intermediate structure that can be converted to
         a Graphviz graph for debugging. *)
-    log_sr_graph  : (DebugHooks.SnapshotRecoverGraph.t -> unit) option;
-    (** Receives the snapshot recover graph post solving for logging. *)
+    sr_dbg_hooks  : SnapshotRecover.DebugHooks.t;
+    (** Receives a logger for the snapshot recover graph post solving. *)
     delay_effects : bool;
     (** True to move effects later so we can avoid unnecessary snapshotting and
         restore.

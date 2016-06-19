@@ -213,7 +213,7 @@ type value =
   | CodeUnit     of CodeUnit.t * CUK.t
   | EnumValue    of unit Var.Domain.t * Var.Value.t option
   | ShallowPtr   of value reference
-  | Match        of (int option * int) option
+  | Match        of unit Regex.t * (int option * int) option
   | Bool         of bool
   | DomainData   of Encodable.t
   | ArrCursor    of Encodable.t list * int ref
@@ -233,7 +233,11 @@ let value_stringer out v = match v with
       (Stringer.tup2 Var.Domain.stringer (Stringer.option Var.Value.stringer))
       out (d, v)
   | ShallowPtr    _        -> out "ShallowPtr"
-  | Match         _        -> out "Match"
+  | Match         (re, bs) ->
+    Stringer.ctor "Match"
+      (Stringer.tup2 Regex.stringer (Stringer.compact_option (
+        Stringer.tup2 (Stringer.compact_option Stringer.int) Stringer.int)))
+      out (re, bs)
   | Bool          b        -> Stringer.ctor "Bool"     Stringer.bool     out b
   | DomainData    d        ->
     Stringer.ctor "DomainData" Encodable.stringer out d
@@ -255,11 +259,12 @@ let rec value_log_stringer out v = match v with
   | CodeUnit      (c, _) -> CodeUnit.stringer out c
   | EnumValue     (_, v) -> (Stringer.option Var.Value.stringer) out v
   | ShallowPtr    v      -> out "&"; value_log_stringer out (v.get ())
-  | Match         m      -> (match m with
+  | Match         (_, m) -> (match m with
       | None        -> out "no"; out "match"
       | Some (l, r) ->
         out "match";
-        Stringer.tup2 (Stringer.option Stringer.int) Stringer.int out (l, r)
+        Stringer.tup2 (Stringer.compact_option Stringer.int)
+          Stringer.int out (l, r)
   )
   | Bool          b      -> Stringer.bool      out b
   | DomainData    d      -> Encodable.stringer out d
@@ -563,6 +568,41 @@ let rec interpret
               sprintf "Failed guard %s"
                 (Stringer.s (IL.SourceStringers.predicate globals formals) c)
             );
+            ignore (
+              IL.Fold.deep
+                (fun (lis, gis) n -> match n with
+                  | `LI li ->
+                    let lis' =
+                      if Scope.L.IdxSet.mem li lis then
+                        lis
+                      else begin
+                        let cell = Scope.L.IdxMap.find li locals in
+                        debug (fun _ ->
+                          sprintf "\tLocal %s=%s\n"
+                            (Stringer.s Label.stringer cell.label)
+                            (Stringer.s value_stringer cell.value));
+                        Scope.L.IdxSet.add li lis
+                      end
+                    in
+                    lis', gis
+                  | `GI gi ->
+                    let gis' =
+                      if Scope.G.IdxSet.mem gi gis then
+                        gis
+                      else begin
+                        let cell = Scope.G.IdxMap.find gi global_environment in
+                        debug (fun _ ->
+                          sprintf "\tGlobal %s=%s\n"
+                            (Stringer.s Label.stringer cell.label)
+                            (Stringer.s value_stringer cell.value));
+                        Scope.G.IdxSet.add gi gis
+                      end
+                    in
+                    lis, gis'
+                  | _      -> lis, gis
+                )
+                (Scope.L.IdxSet.empty, Scope.G.IdxSet.empty) (`P c)
+            );
           end;
           result
         | IL.Alt   (_, default, alt) ->
@@ -696,9 +736,9 @@ let rec interpret
         )
       | IL.IsMatch e                     ->
         (match interp_iexpr locals e with
-          | Match None       -> false
-          | Match (Some _)   -> true
-          | v                ->
+          | Match (_, None)   -> false
+          | Match (_, Some _) -> true
+          | v                 ->
             type_mismatch (`P p) v
               (IL.IData (IL.Match_t (IL.Anchored, CUK.Unicode)))
         )
@@ -830,7 +870,9 @@ let rec interpret
           | IL.IBool_t ->
             ShallowPtr (Interpreter.Reference.make (Bool false))
           | IL.Match_t _ ->
-            ShallowPtr (Interpreter.Reference.make (Match None))
+            ShallowPtr (Interpreter.Reference.make (
+              Match (Regex.Concatenation ((), []), None)
+            ))
           | _     -> failwith "non enum type used for pointer"
       )
       | IL.StartOf e ->
@@ -919,11 +961,11 @@ let rec interpret
                 let match_result =
                   apply re Regex.str_cursor_reader ~is_eof:true [chunk] in
                 (match match_result with
-                  | Regex.Match.NoMatch           -> Match None
+                  | Regex.Match.NoMatch          -> Match (re, None)
                   | Regex.Match.Complete regions ->
                     (match regions.Regex.Match.at with
                       | [region] ->
-                        Match (Some (
+                        Match (re, Some (
                           (* TODO: none for anchored *)
                           Some (StrCursor.as_index region),
                           StrCursor.limit_as_index region
@@ -942,18 +984,18 @@ let rec interpret
         )
       | IL.StartOfMatch e ->
         (match interp_iexpr locals e with
-          | Match (Some (Some start_cursor, _)) -> Snapshot start_cursor
-          | Match (Some (None,              _)) -> failwith "anchored match"
-          | Match None                          -> failwith "no match"
-          | v                                   ->
+          | Match (_, Some (Some start_cursor, _)) -> Snapshot start_cursor
+          | Match (_, Some (None,              _)) -> failwith "anchored match"
+          | Match (_, None)                        -> failwith "no match"
+          | v                                      ->
             type_mismatch (`IE expr) v
               (IL.IData (IL.Match_t (IL.Unanchored, CUK.Unicode)))
         )
       | IL.EndOfMatch   e ->
         (match interp_iexpr locals e with
-          | Match (Some (_, end_cursor)) -> Snapshot end_cursor
-          | Match None -> failwith "no match"
-          | v                            ->
+          | Match (_, Some (_, end_cursor)) -> Snapshot end_cursor
+          | Match (_, None)                 -> failwith "no match"
+          | v                               ->
             type_mismatch (`IE expr) v
               (IL.IData (IL.Match_t (IL.Anchored, CUK.Unicode)))
         )
@@ -964,7 +1006,8 @@ let rec interpret
           | v ->
             type_mismatch (`IE e) v
               (IL.IData (IL.InputSnapshot_t CUK.Unicode)) in
-        Match (Some (Opt.map reduce_to_snapshot s, reduce_to_snapshot e))
+        Match (Regex.Concatenation ((), []),
+               Some (Opt.map reduce_to_snapshot s, reduce_to_snapshot e))
       | IL.Snapshot     e ->
         (match interp_iexpr locals e with
           | InputCursor  { pos; _ } -> Snapshot (pos.get ())
@@ -1056,7 +1099,8 @@ let rec interpret
       | `EE ee -> interp_eexpr locals ee
     and interp_effect locals eff = begin
       debug (fun () ->
-        sprintf "Effect %s" (Stringer.s IL.ReprStringers.sideeff eff);
+        sprintf "Effect %s"
+          (Stringer.s (IL.SourceStringers.sideeff globals formals) eff);
       );
       match eff with
         | IL.SetGlobal (lhs, rhs)           ->

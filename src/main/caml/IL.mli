@@ -45,10 +45,6 @@ type ex_t    =
     returned to the external caller, or part of the same. *)
 
 
-(** The type of an intermediate value or bookkeeping data that is not exposed
-    outside the program.
-    Cursor point into a complex value, and are stateful; [Incr]s to a cursor
-    passed into a function are visible to that function's caller. *)
 type il_t    =
   | InputCursor_t of CUK.t       (** A cursor into a string that increments
                                      using the associated code unit type. *)
@@ -84,6 +80,11 @@ type il_t    =
                                      to work. *)
   | IBool_t                      (** An internal boolean. *)
   | IInt_t                       (** An internal integer. *)
+(** The type of an intermediate value or bookkeeping data that is not exposed
+    outside the program.
+    Cursor point into a complex value, and are stateful; [Incr]s to a cursor
+    passed into a function are visible to that function's caller. *)
+
 and  match_kind = Anchored | Unanchored
 
 
@@ -372,10 +373,8 @@ type 'm stmt    =
 
 type 'm fn      =
   | Fn       of lscope * int * 'm stmt(** A function definition. *)
-
   | Extern   of 'm * Label.t
               * ltype list            (** An external dependency.*)
-
   | Override of 'm * Label.t
               * ltype list            (** A user defined override-function
                                           which can be treated as a no-op, but

@@ -17,16 +17,16 @@
 include DisableGenericCompare
 
 let (test_flags        : (string * string) list),
-    (** Flags that may be examined by test-cases.
-        Some tests dump intermediate results like logs and DOT files for
-        additional debugging.
-        These flags use the prefix ["--test."]. *)
+    (* Flags that may be examined by test-cases.
+       Some tests dump intermediate results like logs and DOT files for
+       additional debugging.
+       These flags use the prefix ["--test."]. *)
     (test_runner_flags : string list),
-    (** Flags meant for OUnit2. *)
+    (* Flags meant for OUnit2. *)
     (test_args         : string list),
-    (** Flags meant for the test filter. *)
+    (* Flags meant for the test filter. *)
     (is_verbose        : bool)
-    (** Controlled by [-v]. *)
+    (* Controlled by [-v]. *)
 = begin
   let is_verbose            = ref false in
   let test_flags_rev        = ref [] in

@@ -56,15 +56,12 @@ let opts output_test_name_dir opts =
         (fun out -> PegILStmtGraph.Dot.output_graph out dot)
         dot_output_file
     );
-    log_sr_graph = Some (fun sr_graph ->
-      let sr_graph_output_file = Path.join_str
-        output_test_name_dir "sr_graph.dot" in
-      Path.write_with_channel
-        (fun out ->
-          PegToIL.DebugHooks.SnapshotRecoverGraph.DotOutput.output_graph
-            out sr_graph)
-        sr_graph_output_file
-    );
+    sr_dbg_hooks = {
+      SnapshotRecover.DebugHooks.default with
+      SnapshotRecover.DebugHooks.log =
+        Log.of_flag ~base:(Some output_test_name_dir) "sr_log.txt";
+      debug = true;
+    };
     timestamp;
   }
 

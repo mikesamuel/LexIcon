@@ -1026,12 +1026,12 @@ struct
       lang { Path.stack; Path.longest_match; Path.inputs } seed_value =
     (* We keep track of two kinds of variables. *)
     let initial_fvars = Op.implied_values in
-    (** [fvars] is a mapping of variable names to [None] if it is declared but
-        not yet assigned, or [Some current_value]. *)
+    (* [fvars] is a mapping of variable names to [None] if it is declared but
+       not yet assigned, or [Some current_value]. *)
     let initial_vars = Var.Map.map (fun v -> [Some v]) initial_fvars in
-    (** [vars] maps variable names to a stack of values, one for each scope in
-        which a variable for that name is declared so that on scope exit, we
-        can restore the old current value into [fvars]. *)
+    (* [vars] maps variable names to a stack of values, one for each scope in
+       which a variable for that name is declared so that on scope exit, we
+       can restore the old current value into [fvars]. *)
 
     (* Take into account the changes e makes to the variable environment. *)
     let propagate_vars_across_event vars fvars e = match e with

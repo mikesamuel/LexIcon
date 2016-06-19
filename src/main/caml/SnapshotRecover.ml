@@ -1,6 +1,34 @@
 include DisableGenericCompare
 
 
+(*
+  Our goal is to make sure that no read observes a variable that was modified
+  along a path that failed.
+
+  Trying to figure out the minimal set of variables to snapshot and recover
+  is hard :(
+  Mostly this is due to re-entrant functions.
+
+  Instead, we
+  1. for each try, compute all the variables that we could snapshot & recover.
+     This is purely based on mutations that reach a recover line.  We deal with
+     liveness (whether that recover can reach a read) later once we've pruned
+     the number of try*var pairs in play.
+  2. repeatedly, remove variables from trys where we can prove they're not
+     needed due to:
+     a. The variable v in try t is "covered".
+        V is covered in t if all failing paths that enter t's recover earlier
+        pass through a try that guards v without switching to a passing
+        trace.  Each failing path may be covered by a different try.
+     b. The variable v in try t is "subsumed" by try u.
+        V is subsumed in t if all failing paths that exit t's recover later
+        pass through u and u guards v.
+  3. for each try t, filter the vars it guards based on liveness.
+     If a var is not read downstream of the recover, then the var need not be
+     guarded.
+*)
+
+
 module TT = ProgramTraceTable
 module Line = TT.Line
 module LineContent = TT.LineContent
@@ -226,6 +254,44 @@ let scope_for_return caller_fi callee_fi actuals = begin
   callee_to_callers
 end
 
+(* Map variables in the caller back to variables in the callee. *)
+let scope_for_call caller_fi callee_fi actuals = begin
+  let _, caller_to_callees = List.fold_left
+    (fun (param_index, caller_to_callees) actual ->
+      let caller_var_opt = match actual with
+        | `IE (IL.GRef gi)        -> Some (Var.Global gi)
+        | `EE (IL.ERef caller_li)
+        | `IE (IL.IRef caller_li) ->
+          Some (Var.Local (caller_fi, caller_li))
+        | _ -> None
+      in
+      (param_index + 1,
+       (match caller_var_opt with
+         | None            -> caller_to_callees
+         | Some caller_var ->
+           let callee_var = Var.Local (
+             callee_fi, Scope.L.idx_of_int param_index
+           ) in
+           VarMap.multiadd VarSet.empty
+             VarSet.add caller_var callee_var caller_to_callees)))
+    (0, VarMap.empty) actuals
+  in
+  caller_to_callees
+end
+
+
+let remap_vars scope vars = begin
+  VarSet.fold
+    (fun v remapped ->
+      let remapped' = VarSet.union remapped
+        (VarMap.find_def v VarSet.empty scope)
+      in
+      match v with
+        | Var.Global _ -> VarSet.add v remapped'
+        | Var.Local  _ -> remapped')
+    vars VarSet.empty
+end
+
 
 let find_opt_lnum { TT.line_sides; _ } side lnum = begin
   LineSide.Map.find_opt side (IntMap.find lnum line_sides)
@@ -245,34 +311,6 @@ let iterate_until_stable
     end in
     iter (digest x) x
 end
-
-
-(*
-  Our goal is to make sure that no read observes a variable that was modified
-  along a path that failed.
-
-  Trying to figure out the minimal set of variables to snapshot and recover
-  is hard :(
-  Mostly this is due to re-entrant functions.
-
-  Instead, we
-  1. for each try, compute all the variables that we could snapshot & recover.
-     This is purely based on mutations that reach a recover line.  We deal with
-     liveness (whether that recover can reach a read) later once we've pruned
-     the number of try*var pairs in play.
-  2. repeatedly, remove variables from trys where we can prove they're not
-     needed due to:
-     a. The variable v in try t is "covered".
-        V is covered in t if all failing paths that enter t's recover earlier
-        pass through a try that guards v without switching to a passing
-        trace.  Each failing path may be covered by a different try.
-     b. The variable v in try t is "subsumed" by try u.
-        V is subsumed in t if all failing paths that exit t's recover later
-        pass through u and u guards v.
-  3. for each try t, filter the vars it guards based on liveness.
-     If a var is not read downstream of the recover, then the var need not be
-     guarded.
-*)
 
 
 module CallResult = struct
@@ -336,6 +374,27 @@ module Reaching = struct
       "loops" IntSet.stringer IntSet.empty
     in
     fun o { vars; calls; loops } -> orec_stringer o (vars, calls, loops)
+end
+
+module LiveRecord = struct
+  type 'm t = {
+            lines_incl               : 'm Line.t list;
+            p_to_f     : VarSet.t VarMap.t option;
+    (* Maps variables in lines_incl's scope to vars in the followers' scope. *)
+            f_to_p     : VarSet.t VarMap.t option;
+    (* Maps variables in followers' scope to vars in lines_incl's scope. *)
+    mutable followers  : 'm t list;
+    (* Set of records for followers. *)
+    mutable live       : VarSet.t;
+    (* The set of variables known to be live.
+       When this is not dirty then it is is correct. *)
+    mutable dirty      : bool;
+    (* When there is a mismatch between this and the follower live count then
+       recomputation is necessary. *)
+    mutable breadcrumb : bool;
+    (* Used to prevent inf. recursion. *)
+  }
+  (* Used to compute the set of variables live after a line in a program. *)
 end
 
 
@@ -717,15 +776,8 @@ begin
                 let { Reaching.vars=vars_reaching_exit; _ } = IntMap.find_def
                   callee_exit_lnum Reaching.empty lines_to_reaching
                 in
-                VarSet.fold
-                  (fun v_callee in_caller ->
-                    let in_caller' = VarSet.union in_caller
-                      (VarMap.find_def v_callee VarSet.empty callee_to_caller)
-                    in
-                    match v_callee with
-                      | Var.Global _ -> VarSet.add v_callee in_caller'
-                      | Var.Local  _ -> in_caller')
-                  vars_reaching_exit vars
+                VarSet.union vars
+                  (remap_vars callee_to_caller vars_reaching_exit)
               )
               calls vars
             in
@@ -788,7 +840,9 @@ begin
   end in
 
 
-  let find_already_reset adjacent_traces opposite_endpoint = begin
+  let find_already_reset adjacent_traces map_across_call opposite_endpoint =
+  begin
+let _ = map_across_call in  (* HACK DEBUG *)
     (* We find the subset of vars that are subsumed or consumed for a try by
        walking from its join line, to adjacent failing traces to see which
        other trys
@@ -808,19 +862,42 @@ begin
           let fail_start = LineList.get lines fail_start_lnum in
           (* TODO: If we're testing subsumption, then early out with empty if
              we're entering a loop. *)
-          let failing_followers = List.filter
+          let failing_adjacent = List.filter
             (fun { Trace.kind; _ } -> TraceKind.equal TraceKind.Failing kind)
             (adjacent_traces fail_start)
           in
-          match failing_followers with
+          match failing_adjacent with
             | []     -> reset
             | hd::tl ->
-              let on_trace t = reset_on_trace VarSet.empty
-                (fun t_reset ->
-                  follow_failure do_not_reenter t_reset
-                    (opposite_endpoint t).Line.lnum)
-                t.Trace.lines_incl
-              in
+              let on_trace t = begin
+                let rec reset_on_trace reset lines = match lines with
+                  | [] ->
+                    follow_failure do_not_reenter reset
+                      (opposite_endpoint t).Line.lnum
+                  | hd::tl ->
+                    let reset' = match hd with
+                      | ({ Line.
+                           lnum;
+                           side    = LineSide.Join;
+                           content = LineContent.Stmt (IL.Try _, _);
+                           _
+                         }
+                      ) ->
+                        let start_lnum = Opt.unless lnum
+                          (find_opt_lnum trace_table LineSide.Start lnum)
+                        in
+                        (* Intersect with current try so that we can quickly
+                           abandon fruitless searches. *)
+                        let reset_by_hd =
+                          VarSet.inter goal_vars (IntMap.find start_lnum resets)
+                        in
+                        VarSet.union reset reset_by_hd
+                      | _ -> reset
+                    in
+                    reset_on_trace reset' tl
+                in
+                reset_on_trace VarSet.empty t.Trace.lines_incl
+              end in
               VarSet.union
                 reset
                 (List.fold_left
@@ -829,34 +906,11 @@ begin
                        (* Prune search early *)
                        reset
                      else
+                       (* TODO: map on_trace back to reset's var-space. *)
                        VarSet.inter reset (on_trace t))
                    (on_trace hd) tl)
         end
-      end
-      and reset_on_trace reset continue lines = match lines with
-        | [] -> continue reset
-        | hd::tl ->
-          let reset' = match hd with
-            | ({ Line.
-                 lnum;
-                 side    = LineSide.Join;
-                 content = LineContent.Stmt (IL.Try _, _);
-                 _
-               }
-            ) ->
-              let start_lnum = Opt.unless lnum
-                (find_opt_lnum trace_table LineSide.Start lnum)
-              in
-              (* Intersect with current try so that we can quickly abandon
-                 fruitless searches. *)
-              let reset_by_hd =
-                VarSet.inter goal_vars (IntMap.find start_lnum resets)
-              in
-              VarSet.union reset reset_by_hd
-            | _ -> reset
-          in
-          reset_on_trace reset' continue tl
-      in
+      end in
 
       if VarSet.is_empty goal_vars then
         VarSet.empty
@@ -882,6 +936,8 @@ begin
       (Traces.ending_at traces)
       (fun { Trace.lines_incl; _ } -> List.hd lines_incl)
     in
+
+let _ = find_subsumed, find_covered in  (* HACK DEBUG *)
 
     (* Keep working as long as we're making progress.
        Fewer resets -> progress. *)
@@ -918,7 +974,7 @@ begin
       *)
       let resets = IntMap.fold
         (fun try_start_lnum try_resets resets ->
-          let subsumed_resets = find_subsumed try_start_lnum resets in
+          let subsumed_resets = raise (Failure "FIXME") (* find_subsumed try_start_lnum resets *) in
           IntMap.add
             try_start_lnum
             (VarSet.diff try_resets subsumed_resets)
@@ -929,7 +985,7 @@ begin
 
       let resets = IntMap.fold
         (fun try_start_lnum try_resets resets ->
-          let covered_resets = find_covered try_start_lnum resets in
+          let covered_resets = raise (Failure "FIXME") (* find_covered try_start_lnum resets *) in
           IntMap.add
             try_start_lnum
             (VarSet.diff try_resets covered_resets)
@@ -944,126 +1000,121 @@ begin
 
 
   let live_after = begin
-    (* We can avoid descending into functions to find live variables since
-       only locals read for the actuals, and globals used by the function are
-       made live.
-       To that end, we pre-calculate the globals used for each function.
-    *)
-    let globals_read_by_fn = begin
-      let globals_read = ref Scope.F.IdxMap.empty in
-      let caller_to_callee = ref Scope.F.IdxMap.empty in
-
-      LineList.iter
-        (fun { Line.fn_idx; reads; content; side; _ } ->
-          let global_reads = VarSet.filter
-            (fun v -> match v with
-              | Var.Local  _ -> false
-              | Var.Global _ -> true)
-            reads
-          in
-          globals_read := Scope.F.IdxMap.multiadd VarSet.empty VarSet.union
-            fn_idx global_reads !globals_read;
-          match content, side with
-            | LineContent.Stmt (IL.Call (_, callee, _), _), LineSide.Start ->
-              caller_to_callee := Scope.F.IdxMap.multiadd
-                Scope.F.IdxSet.empty Scope.F.IdxSet.add
-                fn_idx callee !caller_to_callee;
-            | _ -> ()
-        )
-        lines;
-
-      let count_globals globals_read = Scope.F.IdxMap.fold
-        (fun _ vs n -> n + VarSet.cardinal vs) globals_read 0
+    let tnum_to_live_record = ref TraceNum.Map.empty in
+    let rec make_live_record tnum_opt lines_incl end_line_excl = begin
+      let existing_record = match tnum_opt with
+        | Some tnum ->
+          TraceNum.Map.find_opt tnum !tnum_to_live_record
+        | None -> None
       in
-
-      iterate_until_stable (=) count_globals
-        (fun globals_read ->
-          Scope.F.IdxMap.fold
-            (fun caller callees gr ->
-              Scope.F.IdxMap.add caller
-                (Scope.F.IdxSet.fold
-                   (fun callee vs ->
-                     VarSet.union vs (Scope.F.IdxMap.find callee gr))
-                   callees (Scope.F.IdxMap.find caller gr))
-                gr)
-            !caller_to_callee globals_read)
-        !globals_read
+      match existing_record with
+        | Some r -> r
+        | None   ->
+          let p_to_f, f_to_p = LineContent.(
+            match lines_incl, end_line_excl with
+              | (
+                [{ Line.content=Stmt (IL.Call (_, _, args), _); fn_idx; _ }],
+                { Line.content=Fn callee; _}
+              ) ->
+                Some (scope_for_call   fn_idx callee args),
+                Some (scope_for_return fn_idx callee args)   (*callee->caller*)
+              | (
+                [{ Line.content=Fn callee; _ }],
+                { Line.content=Stmt (IL.Call (_, _, args), _); fn_idx; _ }
+              ) ->
+                Some (scope_for_return fn_idx callee args),
+                Some (scope_for_call   fn_idx callee args)
+              | _ -> None, None
+          ) in
+          let live = List.fold_left
+            (fun vars { Line.reads; _ } -> VarSet.union vars reads)
+            VarSet.empty lines_incl
+          in
+          let r = {
+            LiveRecord.
+            lines_incl;
+            p_to_f;
+            f_to_p;
+            live;
+            breadcrumb = false;
+            dirty      = true;
+            followers  = [];
+          } in
+          (match tnum_opt with
+            | Some tnum ->
+              (* Store before computing followers so follower cycles reuse r. *)
+              tnum_to_live_record :=
+                TraceNum.Map.add tnum r !tnum_to_live_record;
+            | None -> ()
+          );
+          r.LiveRecord.followers <- followers_of end_line_excl;
+          r
+    end
+    and followers_of end_line_excl = begin
+      List.map
+        (fun { Trace.tnum; lines_incl; end_line_excl; _ } ->
+          make_live_record (Some tnum) lines_incl end_line_excl)
+        (Traces.starting_at traces end_line_excl)
     end in
 
-    let trace_num_to_live = Hashtbl.create 16 in
+    let remap_vars_opt scope_opt vars = match scope_opt with
+      | None       -> vars
+      | Some scope -> remap_vars scope vars
+    in
 
-    (* A variable is live at point p if any set of branches could result in
-       its value being read after control leaves point p. *)
-    let rec live_after_traces live_if_reentrant visited traces =
-      begin
-        if debug_liveness then
-          log (
-            Printf.sprintf "live_after_traces %s\n"
-              (Stringer.s (Stringer.list TraceNum.stringer)
-                 (List.map (fun x -> x.Trace.tnum) traces)))
-      end;
-      List.fold_left
-        (fun vs trace -> VarSet.union vs
-          (live_after_one_trace live_if_reentrant visited trace))
-        VarSet.empty traces
-    and live_after_one_trace live_if_reentrant visited t = begin
-      let tnum = t.Trace.tnum in
-      if not (Hashtbl.mem trace_num_to_live tnum) then begin
-        let live_for_t =
-          if TraceNum.Set.mem tnum visited then
-            (* If there's a cycle then everyone on the cycle has the same
-               live set. *)
-            live_if_reentrant
-          else begin
-            let { Trace.tnum; lines_incl; end_line_excl; _ } = t in
-            live_after_lines live_if_reentrant (TraceNum.Set.add tnum visited)
-              lines_incl (IntSet.singleton end_line_excl.Line.lnum)
-          end
+    let rec check live_if_reentrant lr = begin
+      if not lr.LiveRecord.dirty then
+        ()
+      else if lr.LiveRecord.breadcrumb then begin
+        lr.LiveRecord.live <- VarSet.union
+          lr.LiveRecord.live live_if_reentrant;
+        (* Mark dirty so we know we might need to recheck that we've got the
+           full union. *)
+        lr.LiveRecord.dirty      <- true;
+      end else begin
+        let live_count = VarSet.cardinal lr.LiveRecord.live in
+
+        lr.LiveRecord.breadcrumb <- true;
+        lr.LiveRecord.dirty      <- false;
+
+        let live_if_reentrant' = remap_vars_opt lr.LiveRecord.p_to_f
+          (VarSet.union lr.LiveRecord.live live_if_reentrant)
         in
-        begin
-          if debug_liveness then
-            log (
-              Printf.sprintf "live_for %s: %s\n"
-                (Stringer.s TraceNum.stringer tnum)
-                (Stringer.s var_set_stringer live_for_t))
-        end;
-        Hashtbl.replace trace_num_to_live tnum live_for_t
-      end;
-      Hashtbl.find trace_num_to_live tnum
-    end and live_after_lines
-        live_if_reentrant visited lines_incl end_lnums_excl =
-    begin
-      (* What's read by the included lines? *)
-      let reads, live_if_reentrant' = List.fold_left
-        (fun (r, lir) { Line.reads; side; content; _ } ->
-          let r' = VarSet.union r (match content, side with
-            | LineContent.Stmt (IL.Call (_, callee, _), _), LineSide.Start ->
-              VarSet.union reads
-                (Scope.F.IdxMap.find callee globals_read_by_fn)
-            | _ -> reads)
-          in
-          r', lir)
-        (VarSet.empty, live_if_reentrant) lines_incl
-      in
-      let live_if_reentrant' = VarSet.union reads live_if_reentrant' in
-      (* Now expand to include followers. *)
-      IntSet.fold
-        (fun end_lnum_excl live ->
-          let end_line_excl = LineList.get lines end_lnum_excl in
-          VarSet.union live
-            (live_after_traces live_if_reentrant' visited
-               (Traces.starting_at traces end_line_excl)))
-        end_lnums_excl reads
+
+        let live = List.fold_left
+          (fun live follower ->
+            check live_if_reentrant' follower;
+            VarSet.union live
+              (remap_vars_opt
+                 lr.LiveRecord.f_to_p follower.LiveRecord.live))
+          lr.LiveRecord.live lr.LiveRecord.followers
+        in
+
+        lr.LiveRecord.live       <- live;
+        lr.LiveRecord.breadcrumb <- false;
+
+        if lr.LiveRecord.dirty then begin  (* Reentered above. *)
+          if live_count = VarSet.cardinal lr.LiveRecord.live then
+            (* Found a fixed point. *)
+            lr.LiveRecord.dirty <- false
+          else
+            check live_if_reentrant lr
+        end
+      end
     end in
-    fun trace_suffixes ->
+    fun partial_traces ->
       List.fold_left
         (fun live (lines_incl, end_lnums_excl, _) ->
-          VarSet.union live
-            (live_after_lines VarSet.empty
-               TraceNum.Set.empty lines_incl end_lnums_excl))
-        VarSet.empty trace_suffixes
+          IntSet.fold
+            (fun end_lnum_excl live ->
+              let end_line_excl = LineList.get lines end_lnum_excl in
+              let lr = make_live_record None lines_incl end_line_excl in
+              check VarSet.empty lr;
+              VarSet.union lr.LiveRecord.live live)
+            end_lnums_excl live)
+        VarSet.empty partial_traces
   end in
-  (** @param start_line a line that starts a trace. *)
+  (* @param start_line a line that starts a trace. *)
 
   let do_not_reset_dead_vars (resets : VarSet.t IntMap.t) = begin
     (* There are two directions we can check liveness.

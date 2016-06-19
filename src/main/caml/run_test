@@ -1,0 +1,70 @@
+#!/usr/bin/perl
+
+use strict;
+
+sub shell_quote(@) {
+  # Wrap each argument in single quotes and for each embedded
+  # single quote, break out of the single quoted string and wrap it in
+  # double quotes and rely on bash to treat token adjacency as
+  # concatenation.
+  return map { s/'/'"'"'/g; "'$_'" } @_;
+}
+
+my @flags = ();
+my @args = ();
+my $test;
+
+# Shift module names, module source files or compiled modules, and test filters
+# after test flags.
+while (@ARGV) {
+  if ($ARGV[0] =~ /^[A-Z]/i) {
+    push (@args, shift);
+  } else {
+    last;
+  }
+}
+
+# Differentiate flags from args.
+while (@ARGV) {
+  my $arg = shift;
+  if ($arg eq "--") {
+    push (@args, @ARGV);
+    @ARGV = ();
+    last;
+  } elsif ($arg =~ /^-/) {
+    push (@flags, $arg);
+    push (@flags, shift) if $arg =~ /^--/ && $arg !~ /=/;
+  } else {
+    push (@args, $arg, @ARGV);
+    @ARGV = ();
+    last;
+  }
+}
+
+$test = (shift @args) || "AllTests";
+
+# If given a test filter like ModuleName:4:test_name, use the module name as
+# the test name to run.
+if ($test =~ /^(\w+(?:\.(?:byte|native))?)(:(?:\d+:)?)/) {
+  my $testModule = "$1";
+  my $subtest = "$2$'";
+  $test = $1;
+
+  $testModule =~ s/(Test)?(\.byte|\.native)?$//;
+
+  unshift(@args, "$testModule$subtest");
+}
+
+$test =~ s/\.ml$/.byte/;
+
+$test = "$test.native"              unless $test =~ /\.(byte|native)$/;
+
+$test =~ s/\.(byte|native)$/Test$&/ unless $test =~ /Tests?\.(byte|native)$/;
+
+$test = "./$test"                   unless $test =~ "/";
+
+my @qflags  = shell_quote (@flags);
+my @qargs   = shell_quote (@args);
+my ($qtest) = shell_quote ($test);
+
+exec qq'ocaml make.ml $qtest && $qtest @qflags -- @qargs\n';

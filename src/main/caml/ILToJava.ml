@@ -1043,7 +1043,7 @@ let extract_substrings filter ctx clauses = begin
         | Some s -> CodeUnit.Range.Set.intersection la s
         | None   -> la
   end in
-  (** For each cursor expression, the ranges of characters following that
+  (* For each cursor expression, the ranges of characters following that
       cursor based on predicates in reads. *)
 
   (substrings, remainder, code_unit_range_at)
@@ -4519,6 +4519,7 @@ and regex ctx member_namer add_member label_for_regex = begin
   let module RegexMatcherMap = MapUtil.Make (struct
     type t = unit Regex.t * match_kind * CUK.t
     (** We reuse matchers based on the information packaged here. *)
+
     let compare_match_kind x y = match x, y with
       | Anchored,   Anchored   -> 0
       | Anchored,   _          -> ~-1

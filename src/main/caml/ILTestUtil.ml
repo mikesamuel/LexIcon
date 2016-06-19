@@ -86,6 +86,7 @@ module ProgramBuilder = struct
     t_inp_cursor_ : typ;
     t_inp_snapshot_ : typ;
     t_out_buffer_ : typ;
+    t_out_snapshot_ : typ;
     t_match_ : typ;
 
     re_dot_ : regex;
@@ -389,6 +390,7 @@ module ProgramBuilder = struct
     let t_inp_cursor_ = IL.IData (IL.InputCursor_t cuk) in
     let t_inp_snapshot_ = IL.IData (IL.InputSnapshot_t cuk) in
     let t_out_buffer_ = IL.EData (IL.OutputBuffer_t) in
+    let t_out_snapshot_ = IL.IData IL.OutputSnapshot_t in
     let t_match_ = IL.IData (IL.Match_t (IL.Anchored, cuk)) in
 
     let re_cat_ ls cuk = begin
@@ -528,6 +530,7 @@ module ProgramBuilder = struct
       t_inp_cursor_;
       t_inp_snapshot_;
       t_out_buffer_;
+      t_out_snapshot_;
       t_match_;
 
       re_dot_;

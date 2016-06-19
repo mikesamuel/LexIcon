@@ -27,18 +27,13 @@ module SRG       = SnapshotRecoverGraph
 module State     = PegParser.State
 module Lookahead = RE.Lookahead
 
-
 module ScaffoldId : sig
   include Id.S
   val counter : unit -> unit -> t
   val invalid : t
-  val as_int  : t -> int
-  val zero : t
-  val compact_stringer : t Stringer.t
 end = struct
   type t = int
   let invalid = ~-1
-  let zero = invalid
 
   let counter () =
     let ctr = ref 0 in
@@ -48,28 +43,17 @@ end = struct
       incr ctr;
       id
 
-  let as_int x = x
-
   let stringer = Stringer.int
-  let compact_stringer _ _ = ()
   let compare a b = compare a b
   let equal a b = a = b
   let hash a = a
-end
-
-module SRGI = SRG.Make (Scope.F.Idx) (Scope.L.Idx) (ScaffoldId)
-
-
-module DebugHooks = struct
-  module InternalId = ScaffoldId
-  module SnapshotRecoverGraph = SRGI
 end
 
 
 module Opts = struct
   type t = {
     log_dot       : (PegILStmtGraph.t -> unit) option;
-    log_sr_graph  : (SRGI.t -> unit) option;
+    sr_dbg_hooks  : SnapshotRecover.DebugHooks.t;
     delay_effects : bool;
     inline_ops    : bool;
     timestamp     : (string -> float -> unit) option;
@@ -77,14 +61,14 @@ module Opts = struct
 
   let default = {
     log_dot       = None;
-    log_sr_graph  = None;
+    sr_dbg_hooks  = SnapshotRecover.DebugHooks.default;
     delay_effects = true;
     inline_ops    = true;
     timestamp     = None;
   }
 
   let stringer out x =
-    let { delay_effects; inline_ops; log_dot=_; log_sr_graph=_; timestamp=_ } =
+    let { delay_effects; inline_ops; log_dot=_; sr_dbg_hooks=_; timestamp=_ } =
       x in
     Stringer.orec2
       "delay_effects" Stringer.bool default.delay_effects
@@ -278,22 +262,6 @@ type environment = {
     and rely on program optimization to get rid of unused parameters.
 *)
 
-let environment_fold2 f x e0 e1 =
-  let x' =
-    f (
-      f (
-        f x
-          e0.pos e1.pos)
-        e0.limit e1.limit)
-      e0.output_buffer e1.output_buffer in
-  Var.Map.fold
-    (fun name idx0 x -> match Var.Map.find_opt name e1.vars with
-      | Some idx1 -> f x idx0 idx1
-      | None      -> x)
-    e0.vars x'
-(** Folds over pairs of corresponding local indices from the two
-    environments. *)
-
 type ('meta, 'body) abstract_fn = {
           env     : environment;
           arity   : int;
@@ -303,12 +271,6 @@ type ('meta, 'body) abstract_fn = {
 }
 (** Collects information to assemble an IL fn until we have
     everything we need. *)
-
-let make_fake_fns abstract_fn_scope = Scope.F.map
-  (fun _ lbl { arity; env; meta; _ } ->
-    (lbl, IL.Fn (env.locals, arity, Cond (meta, IL._false)))
-  )
-  abstract_fn_scope
 
 
 module ScaffoldIdMap = MapUtil.Make (ScaffoldId)
@@ -329,13 +291,6 @@ module Scaffold = struct
     | Concat      of 'm t list
     | Union       of 'm t * 'm t
     (** default / alternative *)
-    | Reset       of Scope.L.IdxSet.t
-    (** snapshot the specified locals so they can be reset on failure. *)
-    | Guard       of 'm t * 'm t * 'm t * 'm t
-    (** [Guard try reset join_pass join_fail]
-        snapshots the state needed to run reset in case try fails.
-        The join pass and join fail points are used so that we can identify
-        function entry and exit when doing flow analysis. *)
     | Decode      of 'm DecoderHandle.t
     (** decode the portion of the input buffer between pos and limit onto the
         output buffer, advancing pos to limit. *)
@@ -348,11 +303,10 @@ module Scaffold = struct
         buffer and output buffers, and read/modify variable values.
     *)
   and 'm t = {
-            id       : ScaffoldId.t;
-            meta     : 'm;
-            atom     : 'm atom;
-            env      : environment;
-    mutable branches : ScaffoldIdSet.t;
+    id       : ScaffoldId.t;
+    meta     : 'm;
+    atom     : 'm atom;
+    env      : environment;
   }
 
   let fold f x s = match s.atom with
@@ -364,8 +318,6 @@ module Scaffold = struct
     | Invoke      (_, p, q)       -> f (f x p) q
     | Concat      ls              -> List.fold_left f x ls
     | Union       (d, a)          -> f (f x d) a
-    | Guard       (t, r, p, g)    -> f (f (f (f x t) r) p) g
-    | Reset       _               -> x
     | Decode      _               -> x
     | Encode      _               -> x
     | Callout     _               -> x
@@ -376,7 +328,6 @@ module Scaffold = struct
       | Require     _,         []
       | Panic,                 []
       | PassingStmt _,         []
-      | Reset       _,         []
       | Decode      _,         []
       | Encode      _,         []
       | Callout     _,         []              -> s.atom
@@ -384,7 +335,6 @@ module Scaffold = struct
       | Repeat      (_, p),    [b]             -> Repeat (b, p)
       | Concat      _,         ls              -> Concat ls
       | Union       _,         [d; a]          -> Union  (d, a)
-      | Guard       _,         [t; r; p; f]    -> Guard  (t, r, p, f)
       | MatchToken  _,         _
       | Require     _,         _
       | Panic,                 _
@@ -394,23 +344,9 @@ module Scaffold = struct
       | Callout     _,         _
       | Invoke      _,         _
       | Repeat      _,         _
-      | Reset       _,         _
-      | Guard       _,         _
       | Union       _,         _               ->
         failwith "arity mismatch" in
     { s with atom = atom' }
-
-  let map_deep ~pre ~post =
-    let rec map_deep_helper s =
-      let s' = pre s in
-      let children_rev, changed = fold
-        (fun (ls, changed) c ->
-          let c' = map_deep_helper c in
-          c'::ls, changed || not (same c c'))
-        ([], false) s' in
-      let s'' = if changed then unfold s' (List.rev children_rev) else s' in
-      post s'' in
-    map_deep_helper
 
   let rec atom_stringer globals fns locals out x = match x with
     | MatchToken   (re, i)         ->
@@ -441,16 +377,6 @@ module Scaffold = struct
     | Union        (d, a)          ->
       let stringer = stringer fns globals in
       Stringer.ctor "Union" (Stringer.tup2 stringer stringer) out (d, a)
-    | Guard        (t, r, p, f)    ->
-      let stringer = stringer fns globals in
-      Stringer.ctor "Guard"
-        (Stringer.tup4 stringer stringer stringer stringer)
-        out (t, r, p, f)
-    | Reset        s               ->
-      let local_names_stringer out names =
-        Stringer.list (fun out x -> Label.stringer out (Scope.L.label locals x))
-          out names in
-      Stringer.ctor "Reset" local_names_stringer out (Scope.L.IdxSet.elements s)
     | Decode       dec             ->
       Stringer.ctor "Decode" Label.stringer out (Handle.label dec)
     | Encode       (enc, li)       ->
@@ -462,170 +388,11 @@ module Scaffold = struct
            Label.stringer Label.stringer)
         out
         (lbl, vm, Scope.L.label locals i, Scope.L.label locals o)
-  and stringer fns globals out x = Stringer.orec3
+  and stringer fns globals out x = Stringer.orec2
     "id"       ScaffoldId.stringer                      ScaffoldId.invalid
     "atom"     (atom_stringer globals fns x.env.locals) (Concat [])
-    "branches" ScaffoldIdSet.stringer                   ScaffoldIdSet.empty
     out
-    (x.id, x.atom, x.branches)
-
-  let to_dot globals fns src pass_sink fail_sink =
-    let fn_idx_to_dot_fn = Scope.F.fold
-      (fun m fn_idx label _ ->
-        let fn = {
-          PegILStmtGraph.Vertex.fn_idx = fn_idx;
-          label                        = label;
-        } in
-        Scope.F.IdxMap.add fn_idx fn m
-      )
-      Scope.F.IdxMap.empty fns in
-
-    let fake_fns = make_fake_fns fns in
-
-    let src_vertex = {
-      PegILStmtGraph.Vertex.fn = None;
-      id                       = ScaffoldId.as_int src.id;
-      desc                     = "src";
-      comment                  = "source";
-    } in
-
-    let pass_sink_vertex = {
-      PegILStmtGraph.Vertex.fn = None;
-      id                       = ScaffoldId.as_int pass_sink.id;
-      desc                     = "pass";
-      comment                  = "pass";
-    } in
-
-    let fail_sink_vertex = {
-      PegILStmtGraph.Vertex.fn = None;
-      id                       = ScaffoldId.as_int fail_sink.id;
-      desc                     = "fail";
-      comment                  = "fail";
-    } in
-
-    let add_branches branches vertex partial_edges = ScaffoldIdSet.fold
-      (fun follower_id partial_edges ->
-        (vertex, follower_id)::partial_edges)
-      branches partial_edges in
-
-    let id_to_dot_vertex, partial_edges =
-      let rec scaffold_to_dot ?(desc=None) id_to_dot_vertex partial_edges fn s =
-        let desc = Opt.unless_f
-          (fun () -> match s.atom with
-            | MatchToken   (re, i) ->
-              sprintf "%s=~/%s/"
-                (Stringer.s Label.stringer (Scope.L.label s.env.locals i))
-                (Stringer.s RE.stringer re)
-            | PassingStmt  stmt -> (match stmt with
-                | Let (_, lhs, _) ->
-                  sprintf "Let %s"
-                    (Stringer.s Label.stringer (Scope.L.label s.env.locals lhs))
-                | Mut (_, SetPtr (lhs, EnumConst (_, v))) ->
-                  sprintf "*%s=%s"
-                    (Stringer.s Label.stringer (Scope.L.label s.env.locals lhs))
-                    (Stringer.s Var.Value.stringer v);
-                | Mut (_, Append (e, _)) ->
-                  sprintf "emit %s" (
-                    Stringer.s (IL.SourceStringers.eexpr globals s.env.locals) e
-                  )
-                | Mut (_, CopyTo _) -> "copy"
-                | Mut (_, AppendMks (mks, _)) ->
-                  sprintf "mk %s"
-                    (Stringer.s (Stringer.list EvMarker.stringer) mks)
-                | _ ->
-                  Stringer.s
-                    (IL.SourceStringers.stmt globals fake_fns s.env.locals)
-                    stmt
-            )
-            | Repeat       _    -> "+"
-            | Concat       []   -> ""
-            | Concat       _    -> "&"
-            | Union        _    -> "|"
-            | Guard        _    -> "?!"
-            | Reset        idxs ->
-              if Scope.L.IdxSet.is_empty idxs then
-                "noop"
-              else
-                String.concat ","
-                  (List.map
-                     (fun idx ->
-                       Label.to_string (Scope.L.label s.env.locals idx))
-                     (Scope.L.IdxSet.elements idxs))
-            | Invoke       _    -> "->"
-            | Require      p    ->
-              sprintf "if %s"
-                (Stringer.s
-                   (IL.SourceStringers.predicate globals s.env.locals)
-                   p)
-            | Panic             -> "exn"
-            | Decode       _    -> "dec"
-            | Encode       _    -> "enc"
-            | Callout (n,_,_,_) -> "->" ^ (Label.to_string n)
-          ) desc in
-        let comment = match s.atom with
-          | Callout     _ -> "Callout"
-          | Concat      _ -> "Concat"
-          | Decode      _ -> "Decode"
-          | Encode      _ -> "Encode"
-          | Invoke      _ -> "Invoke"
-          | MatchToken  _ -> "MatchToken"
-          | PassingStmt _ -> "PassingStmt"
-          | Require     _ -> "Require"
-          | Panic         -> "Panic"
-          | Repeat      _ -> "Repeat"
-          | Reset       _ -> "Reset"
-          | Guard       _ -> "Guard"
-          | Union       _ -> "Union" in
-        let vertex = {
-          PegILStmtGraph.Vertex.id = ScaffoldId.as_int s.id;
-          fn;
-          desc;
-          comment;
-        } in
-        let id_to_dot_vertex' =
-          ScaffoldIdMap.add s.id vertex id_to_dot_vertex in
-        let partial_edges' = add_branches s.branches vertex partial_edges in
-        let descs = match s.atom with
-          | Invoke _ -> [Some "return"; Some "fail"]
-          | Union  _ -> [None; None; None; Some "pass"; Some "fail"]
-          | _        -> fold (fun ls _ -> None::ls) [] s in
-        let (id_to_dot_vertex', partial_edges'), _ = fold
-          (fun ((id_to_dot_vertex, partial_edges), descs) c ->
-            scaffold_to_dot
-              ~desc:(List.hd descs) id_to_dot_vertex partial_edges fn c,
-            List.tl descs)
-          ((id_to_dot_vertex', partial_edges'), descs) s in
-        (id_to_dot_vertex', partial_edges') in
-      Scope.F.fold
-        (fun (id_to_dot_vertex, partial_edges) fn_idx _ v -> match v.body with
-          | None      -> (id_to_dot_vertex, partial_edges)
-          | Some body ->
-            let fn = Scope.F.IdxMap.find fn_idx fn_idx_to_dot_fn in
-            scaffold_to_dot id_to_dot_vertex partial_edges (Some fn) body
-        )
-        (
-          ScaffoldIdMap.of_list [
-            src.id,       src_vertex;
-            pass_sink.id, pass_sink_vertex;
-            fail_sink.id, fail_sink_vertex;
-          ],
-          add_branches src.branches src_vertex (
-            add_branches pass_sink.branches pass_sink_vertex (
-              add_branches fail_sink.branches fail_sink_vertex []
-            )
-          )
-        )
-        fns in
-
-    let graph = PegILStmtGraph.create () in
-    ScaffoldIdMap.iter
-      (fun _ v -> PegILStmtGraph.add_vertex graph v) id_to_dot_vertex;
-    List.iter
-      (fun (src, dest_id) ->
-        let dest = (ScaffoldIdMap.find dest_id id_to_dot_vertex) in
-        PegILStmtGraph.add_edge graph src dest)
-      partial_edges;
-    graph
+    (x.id, x.atom)
 
   let immediate_locals s = match s.atom with
     | Callout     (_,v,i,o) ->
@@ -637,8 +404,6 @@ module Scaffold = struct
       )
     | Concat      _         -> Scope.L.IdxSet.empty
     | Union       _         -> Scope.L.IdxSet.empty
-    | Guard       _         -> Scope.L.IdxSet.empty
-    | Reset       idxs      -> idxs
     | MatchToken  _         -> Scope.L.IdxSet.of_list [s.env.pos; s.env.limit]
     | Repeat      (_, p)
     | Require     p         -> li_locals (`P p)
@@ -692,10 +457,6 @@ module Scaffold = struct
           ListUtil.for_all2_soft equal x y
         | Union       (a, b),    Union       (c, d)    ->
           equal a c && equal b d
-        | Reset       s,         Reset       t         ->
-          Scope.L.IdxSet.equal s t
-        | Guard       (a,b,c,d), Guard       (e,f,g,h) ->
-          equal a e && equal b f && equal c g && equal d h
         | Decode      x,         Decode      y         ->
           Label.equal (Handle.label x) (Handle.label y)
         | Encode      (x, i),    Encode      (y, j)    ->
@@ -711,8 +472,6 @@ module Scaffold = struct
         | Invoke      _,         _
         | Concat      _,         _
         | Union       _,         _
-        | Reset       _,         _
-        | Guard       _,         _
         | Decode      _,         _
         | Encode      _,         _
         | Callout     _,         _                     -> false
@@ -1109,22 +868,14 @@ begin
 
     (* factories for scaffolds, guards, and invokes that handle assigning
        unique IDs, and a deep cloner that allocates new IDs to the clones *)
-    let make_scaffold, make_guard, make_invoke, clone_scaffold =
+    let make_scaffold, make_invoke, clone_scaffold =
       let id_counter = ScaffoldId.counter () in
       let make_scaffold env meta atom = {
         Scaffold.id = id_counter ();
         atom;
         meta;
         env;
-        (* Populated later. *)
-        branches    = ScaffoldIdSet.empty;
       } in
-      let make_guard env meta t = Scaffold.Guard (
-        t,
-        make_scaffold env meta (Scaffold.Reset Scope.L.IdxSet.empty),
-        make_scaffold env meta (Scaffold.Concat []),
-        make_scaffold env meta (Scaffold.Require IL._false)
-      ) in
       let make_invoke env meta callee = Scaffold.Invoke (
         callee,
         make_scaffold env meta (Scaffold.Concat []),
@@ -1137,7 +888,7 @@ begin
                 (fun children_rev child ->
                   (clone_scaffold child)::children_rev)
                 [] s)) in
-      make_scaffold, make_guard, make_invoke, clone_scaffold in
+      make_scaffold, make_invoke, clone_scaffold in
 
     (* A scaffold for a Let x = y statement. *)
     let let_scaffold env meta lhs rhs =
@@ -1649,7 +1400,6 @@ begin
           op_handler.ILBridge.inliner marks
         else
           None in
-
       (match inliner with
         | Some inliner ->
           (* If we can inline then.
@@ -2181,14 +1931,13 @@ begin
             | Scaffold.Panic                     -> false
             | Scaffold.Require     _
             | Scaffold.PassingStmt _
-            | Scaffold.Reset       _
             | Scaffold.Decode      _
             | Scaffold.Encode      _
             | Scaffold.Callout     _             -> true
             | Scaffold.Repeat      (b, _)        -> walk b
             | Scaffold.Concat      x             -> List.for_all walk x
             | Scaffold.Union       (d, a)        -> walk d || walk a
-            | Scaffold.Guard       (t, r, _, _)  -> walk t || walk r in
+          in
           walk (Opt.require pfn.body) in
         Scope.F.iter (fun fn_idx _ pfn -> ignore (walk_fn [fn_idx] fn_idx pfn))
           functions;
@@ -2275,7 +2024,6 @@ begin
               | Scaffold.Require     _
               | Scaffold.Panic
               | Scaffold.PassingStmt _
-              | Scaffold.Reset       _
               | Scaffold.Decode      _
               | Scaffold.Encode      _
               | Scaffold.Callout     _               -> s
@@ -2286,11 +2034,6 @@ begin
               | Scaffold.Union       (d, a)          ->
                 with_atom (
                   Scaffold.Union     (rewrite d, rewrite a)
-                )
-              | Scaffold.Guard       (b, r, p, f) ->
-                with_atom (
-                  Scaffold.Guard     (rewrite b, rewrite r,
-                                      rewrite p, rewrite f)
                 )
               | Scaffold.Invoke      (callee, p, f)  ->
                 let call = with_atom
@@ -2398,193 +2141,6 @@ begin
     end;
     timestamp "rewrite lr";
 
-    (* Compute conservatively which scaffolds each scaffold can branch to on
-       success and on failure.  This allows us to later figure out whether we
-       need to snapshot & restore state on a failure branch. *)
-    let (source_scaffold, pass_sink_scaffold, fail_sink_scaffold,
-         scaffold_id_to_scaffold, update_branches) =
-    begin
-      (* Pseudo-scaffolds that precede and follow execution as a whole. *)
-      let source, pass_sink, fail_sink =
-        let main_fn = Scope.F.value functions main_fn_idx in
-        make_scaffold main_fn.env main_fn.meta (Scaffold.Concat  []),
-        make_scaffold main_fn.env main_fn.meta (Scaffold.Concat  []),
-        make_scaffold main_fn.env main_fn.meta (Scaffold.Require (Nand [])) in
-
-      (* Map IDs to scaffolds. *)
-      let scaffold_id_to_scaffold, update_id_map =
-        let id_table = Hashtbl.create 1024 in
-        (
-          (Hashtbl.find id_table),
-          (
-            fun () ->
-              Hashtbl.clear id_table;
-              Hashtbl.replace id_table source.Scaffold.id    source;
-              Hashtbl.replace id_table pass_sink.Scaffold.id pass_sink;
-              Hashtbl.replace id_table fail_sink.Scaffold.id fail_sink;
-              let rec enter s =
-                Hashtbl.replace id_table s.Scaffold.id s;
-                Scaffold.fold (fun () c -> enter c) () s in
-              Scope.F.iter
-                (fun _ _ pfn -> enter (Opt.require pfn.body))
-                functions;
-          )
-        ) in
-
-      let add_edge start_vertex end_vertex_id = begin
-        let { Scaffold.branches; _ } = start_vertex in
-        let branches' = ScaffoldIdSet.add end_vertex_id branches in
-        start_vertex.Scaffold.branches <- branches'
-      end in
-
-      let add_edges start_vertices end_vertex_id = ScaffoldIdSet.iter
-        (fun start_vertex_id ->
-          let start_vertex = scaffold_id_to_scaffold start_vertex_id in
-          add_edge start_vertex end_vertex_id
-        )
-        start_vertices in
-
-      (* Callee indices and the nodes following calls to them. *)
-      let call_followers = ref [] in
-
-      (* Computes Scaffold.branches.
-       *
-       * INPUTS
-       * s            : the scaffold whose branches should be populated.
-       *
-       * OUTPUTS
-       * (pass_after, : scaffolds that may transfer control to s's followers
-       *  fail_after) : scaffolds that may propagate failure out of s
-       *)
-      let rec add_branch_edges s = (match s.Scaffold.atom with
-        | Scaffold.Concat ls             ->
-          List.fold_left
-            (fun (before, all_fail_after) child ->
-              add_edges before child.Scaffold.id;
-              let pass_after, fail_after =
-                add_branch_edges child in
-                (* Each element of a concat passes into the next, and failure
-                   of any propagates out of the concat. *)
-              (pass_after, ScaffoldIdSet.union all_fail_after fail_after)
-            )
-            (ScaffoldIdSet.singleton s.Scaffold.id, ScaffoldIdSet.empty)
-            ls
-        | Scaffold.Union (d, a)          ->
-          add_edge  s            d.Scaffold.id;
-          let pass_after_d, fail_after_d = add_branch_edges d in
-          add_edges fail_after_d  a.Scaffold.id;
-          let pass_after_a, fail_after_a = add_branch_edges a in
-          (ScaffoldIdSet.union pass_after_d pass_after_a), fail_after_a
-        | Scaffold.Guard (t, r, p, f)    ->
-          add_edge  s            t.Scaffold.id;
-          let pass_after_t, fail_after_t = add_branch_edges t in
-          add_edges fail_after_t r.Scaffold.id;
-          let pass_after_r, fail_after_r = add_branch_edges r in
-          assert (ScaffoldIdSet.is_empty fail_after_r);
-          (* Join the passing branches so that flow-analysis code can tell when
-             control leaves a try. *)
-          add_edges pass_after_t p.Scaffold.id;
-          add_edges pass_after_r f.Scaffold.id;
-          let pass_after_p, fail_after_p = add_branch_edges p in
-          let pass_after_f, fail_after_f = add_branch_edges f in
-          assert (ScaffoldIdSet.is_empty fail_after_p);
-          assert (ScaffoldIdSet.is_empty pass_after_f);
-          (pass_after_p, fail_after_f)
-        | Scaffold.Require      p        ->
-          let self = ScaffoldIdSet.singleton s.Scaffold.id in
-          (match p with
-            | Nand []        -> (ScaffoldIdSet.empty, self)
-            | Nand [Nand []] -> (self, ScaffoldIdSet.empty)
-            | _              -> (self, self)
-          )
-        | Scaffold.Panic                 ->
-          (ScaffoldIdSet.empty, ScaffoldIdSet.empty)
-        | Scaffold.MatchToken   (r, _)   ->
-          let self = ScaffoldIdSet.singleton s.Scaffold.id in
-          (match (RE.lookahead r 3).Lookahead.matches with
-            | RE.Always    -> (self, ScaffoldIdSet.empty)
-            | RE.Sometimes -> (self, self)
-            | RE.Never     -> (ScaffoldIdSet.empty, self))
-        | Scaffold.PassingStmt  _
-        | Scaffold.Reset        _
-        | Scaffold.Callout      _        ->
-          (ScaffoldIdSet.singleton s.Scaffold.id, ScaffoldIdSet.empty)
-        | Scaffold.Decode       _
-        | Scaffold.Encode       _        ->
-          (* TODO: If the extent passes but decoding fails, then
-             do we need to poison the whole.  Iow, should decode be
-             treated as always passing or do we need to gate failure
-             of embeds at a higher level. *)
-          (ScaffoldIdSet.singleton s.Scaffold.id,
-           ScaffoldIdSet.singleton s.Scaffold.id)
-        | Scaffold.Repeat       (b, p)   ->
-          add_edge  s          b.Scaffold.id;
-          let pass_after, fail_after = add_branch_edges b in
-          (* Add loop back from the trailing edge of b back to the loop
-             itself so that the branch structure takes into account the
-             predicate associated with the repetition. *)
-          add_edges pass_after s.Scaffold.id;
-          let exit_edges =
-            if IL.Equal.predicate p IL._true then
-              fail_after
-            else
-              (* Since there's a predicate that can fail and terminate
-                 the loop, b can pass and the loop can still exit. *)
-              ScaffoldIdSet.union fail_after pass_after in
-          (exit_edges, fail_after)
-        | Scaffold.Invoke (callee, call_pass_follower, call_fail_follower) ->
-          let body = Opt.require ((Scope.F.value functions callee).body) in
-          add_edge s body.Scaffold.id;
-          call_followers := (
-            (callee,
-             call_pass_follower.Scaffold.id,
-             call_fail_follower.Scaffold.id)
-            ::!call_followers
-          );
-          (ScaffoldIdSet.singleton call_pass_follower.Scaffold.id,
-           ScaffoldIdSet.singleton call_fail_follower.Scaffold.id)
-      ) in
-
-      let update_branches () = begin
-        update_id_map ();
-
-        let main_fn = Scope.F.value functions main_fn_idx in
-
-        (* Link to source and sink. *)
-        add_edge source (Opt.require main_fn.body).Scaffold.id;
-        call_followers := [
-          (main_fn_idx, pass_sink.Scaffold.id, fail_sink.Scaffold.id)
-        ];
-
-        (* Walk each function's body. *)
-        let fn_followers = Scope.F.fold
-          (fun m fn_idx _ { body; _ } ->
-            Scope.F.IdxMap.add fn_idx (add_branch_edges (Opt.require body)) m
-          )
-          Scope.F.IdxMap.empty functions in
-
-        (* Connect function body followers to the followers of calls to those
-           functions. *)
-        List.iter (fun (callee, call_pass_follower, call_fail_follower) ->
-          let fn_pass_after, fn_fail_after =
-            Scope.F.IdxMap.find callee fn_followers in
-          add_edges fn_pass_after call_pass_follower;
-          add_edges fn_fail_after call_fail_follower;
-        ) !call_followers;
-        timestamp "update_branches";
-      end in
-
-      (
-        source,
-        pass_sink,
-        fail_sink,
-        scaffold_id_to_scaffold,
-        update_branches
-      )
-    end in
-
-    let _ = scaffold_id_to_scaffold in  (* TODO: is this necessary anymore? *)
-
     (* Optimize by pulling common prefixes and suffixes out of Alts, shifting
        mutations right of unrelated Requires so that we have less work to undo
        before failing, flattening concats, etc. *)
@@ -2606,7 +2162,6 @@ begin
           | Scaffold.MatchToken  _
           | Scaffold.PassingStmt _
           | Scaffold.Invoke      _
-          | Scaffold.Reset       _
           | Scaffold.Decode      _
           | Scaffold.Encode      _
           | Scaffold.Callout     _               -> s
@@ -2702,9 +2257,6 @@ begin
           | Scaffold.Repeat      (b, Nand [])    -> flatten b
           | Scaffold.Repeat      (b, c)          ->
             { s with Scaffold.atom = Scaffold.Repeat (flatten b, c) }
-          | Scaffold.Guard       (t, r, p, f)    ->
-            let t', r' = flatten t, flatten r in
-            { s with Scaffold.atom = Scaffold.Guard (t', r', p, f) }
           | Scaffold.Union       (d, a)          ->
             { s with Scaffold.atom = Scaffold.Union (flatten d, flatten a) } in
 
@@ -2717,8 +2269,8 @@ begin
 
            Union (
              Concat [MatchToken "\\"; ...]
-             Reset ...,
-             Union (Concat [MatchToken "\\"; ...], Reset ... alt)
+             ...,
+             Union (Concat [MatchToken "\\"; ...], ... alt)
            )
 
            into
@@ -2726,9 +2278,9 @@ begin
            Union (
              Concat [
                MatchToken "\\";
-               Union (..., Reset ..., Union (...))
+               Union (..., ..., Union (...))
              ],
-             Reset ...
+             ...
              alt
            )
         *)
@@ -2782,7 +2334,6 @@ begin
                 delay (hd::delayed_rev) mods' tl
               | ({ atom = Concat      _           ; _ } as hd)::tl
               | ({ atom = Union       _           ; _ } as hd)::tl
-              | ({ atom = Guard       _           ; _ } as hd)::tl
               | ({ atom = Repeat      _           ; _ } as hd)::tl
               | ({ atom = Decode      _           ; _ } as hd)::tl
               | ({ atom = Encode      _           ; _ } as hd)::tl
@@ -2791,8 +2342,7 @@ begin
               | ({ atom = MatchToken  _           ; _ } as hd)::tl
               | ({ atom = PassingStmt _           ; _ } as hd)::tl
               | ({ atom = Require     _           ; _ } as hd)::tl
-              | ({ atom = Scaffold.Panic          ; _ } as hd)::tl
-              | ({ atom = Reset       _           ; _ } as hd)::tl ->
+              | ({ atom = Scaffold.Panic          ; _ } as hd)::tl ->
                 let locals_read = Scaffold.deep_locals hd in
                 let is_modified x = Scope.L.IdxSet.mem x mods in
                 if Scope.L.IdxSet.exists is_modified locals_read then
@@ -2892,425 +2442,6 @@ begin
       optimize ();
     end;
     timestamp "optimization done";
-
-    (* Add guards around function bodies, loop bodies, and union branches so
-       so that we can snapshot state and recover from failing paths that
-       can backtrack to eventually succeed. *)
-    begin
-      let guard (s : 'm Scaffold.t) =
-        let { Scaffold.env; meta; _ } = s in
-        make_scaffold env meta (make_guard env meta s) in
-      let maybe_guard s = match s.Scaffold.atom with
-        | Scaffold.Guard  _  -> s
-        | Scaffold.Concat ls ->
-          let rec split_side_effecting_tail ls = match ls with
-            | []     -> [], []
-            | hd::tl ->
-              (match hd.Scaffold.atom with
-                | Scaffold.MatchToken  _
-                | Scaffold.Require     _
-                | Scaffold.PassingStmt (Let _) ->
-                  let noeff, eff = split_side_effecting_tail tl in
-                  hd::noeff, eff
-                | _                            ->
-                  [], ls
-              ) in
-          (match split_side_effecting_tail ls with
-            | _,     []  -> s
-            | [],    _   -> guard s
-            | noeff, eff ->
-              let { Scaffold.env; meta; _ } = s in
-              {
-                s with Scaffold.atom = Scaffold.Concat (
-                  noeff @ [guard (make_scaffold env meta (Scaffold.Concat eff))]
-                )
-              })
-        | _                  -> guard s in
-      let guard_deeply s = maybe_guard (
-        Scaffold.map_deep ~pre:(fun x -> x)
-          ~post:(
-            fun s -> match s.Scaffold.atom with
-              | Scaffold.Repeat (b, p) ->
-                let b' = maybe_guard b in
-                { s with Scaffold.atom = Scaffold.Repeat (b', p) }
-              | Scaffold.Union  (a, b) ->
-                let a' = maybe_guard a in
-                { s with Scaffold.atom = Scaffold.Union  (a', b) }
-              | Scaffold.Invoke _      -> maybe_guard s
-              | _                      -> s
-          )
-          s
-      ) in
-      Scope.F.iter (fun _ _ pfn -> pfn.body <- Opt.map guard_deeply pfn.body)
-        functions;
-    end;
-    timestamp "guarded";
-
-    update_branches ();
-
-    (* Add instructions to snapshot and restore state to each branch so that we
-       can recover from a branch that fails. *)
-    begin
-      let snapshot_recover_graph, id_map, source_node = begin
-        let var_stringer out (f, i) =
-          let { env; _ } = Scope.F.value functions f in
-          let abbrev3 s =
-            if String.length s <= 3 then s else String.sub s 0 3 in
-          out (sprintf "%s:%s"
-                 (abbrev3 (Label.to_string (Scope.L.label env.locals i)))
-                 (Stringer.s Scope.L.Idx.stringer i)) in
-        let {
-          SRGI.
-          graph;
-          make_node;
-          add_edge;
-        } = SRGI.maker ~var_stringer (Scope.F.label functions) in
-        let idxs = Scope.L.IdxSet.of_list in
-        let nop = SRGI.Content.zero in
-        (* Maps Scaffold IDs to graph node IDs. *)
-        let source_node = make_node None nop source_scaffold.Scaffold.id in
-        let id_map =
-          ScaffoldIdMap.singleton source_scaffold.Scaffold.id source_node in
-        (* Walk a functions body, following the branches structure computed
-           above. *)
-        let rec build_nodes fn_idx s id_map =
-          (* We mark nodes with the function index and the scaffold ID so that
-             the DOT debugging output can group function bodies into sub-graphs
-             and so that we can generate a tabular dump with a column for
-             the scaffold ID. *)
-          let make_node = make_node (Some fn_idx) in
-          let idxs_to_vars idxs = Scope.L.IdxSet.fold
-            (fun li v -> SRGI.Vars.add (fn_idx, li) v)
-            idxs SRGI.Vars.empty in
-          let env = s.Scaffold.env in
-          (* Helper that recurses to children. *)
-          let recur content =
-            let node_id = make_node content s.Scaffold.id in
-            let id_map' = ScaffoldIdMap.add s.Scaffold.id node_id id_map in
-            Scaffold.fold
-              (fun id_map c -> build_nodes fn_idx c id_map)
-              id_map' s in
-          (* A read node based on an analysis of `LIs. *)
-          let uses n = recur (SRGI.Use {
-            SRGI.
-            inits  = SRGI.Vars.empty;
-            reads  = idxs_to_vars (li_locals n);
-            writes = SRGI.Vars.empty;
-          }) in
-          (* Allocate a mutable cell to contain the conclusions for a particular
-             branch. *)
-          let reset () = SRGI.Reset {
-            SRGI.Content.
-            vars      = SRGI.Vars.empty;
-            committed = false;
-          } in
-          match s.Scaffold.atom with
-            | Scaffold.MatchToken  (_, o)          ->
-              recur (SRGI.Use {
-                SRGI.
-                inits  = idxs_to_vars (idxs [o]);
-                reads  = idxs_to_vars (idxs [env.pos; env.limit]);
-                writes = SRGI.Vars.empty;
-              })
-            | Scaffold.PassingStmt (Mut (_, e))    ->
-              let written, read = local_mod_and_uses e in
-              recur (SRGI.Use {
-                SRGI.
-                inits  = SRGI.Vars.empty;
-                reads  = idxs_to_vars read;
-                writes = idxs_to_vars (idxs [written]);
-              })
-            (* Assume, conservatively, that a callout modifies all variables
-               it can write, and mucks with the output buffer
-               (but only the portion created by the body associated with the
-                original @Entrust annotation). *)
-            | Scaffold.Callout     (_, r, i, o)    ->
-              let written, read = Var.Map.fold
-                (fun name rw (written, read) ->
-                  let idx = Var.Map.find name env.vars in
-                  match rw with
-                    | Rw.Read_only  -> written, Scope.L.IdxSet.add idx read
-                    | Rw.Read_write ->
-                      Scope.L.IdxSet.add idx written,
-                      Scope.L.IdxSet.add idx read
-                    | Rw.Write_only -> Scope.L.IdxSet.add idx written, read)
-                r
-                (
-                  Scope.L.IdxSet.of_list [env.output_buffer],
-                  Scope.L.IdxSet.of_list [i; o; env.pos]
-                ) in
-              recur (SRGI.Use {
-                SRGI.
-                inits  = SRGI.Vars.empty;
-                reads  = idxs_to_vars read;
-                writes = idxs_to_vars written;
-              })
-            (* Don't treat the LHS as set since that doesn't actually mutate
-               any mutable state.   Lets occur at most once per loop iteration,
-               so do not warrant restoring.
-            *)
-            | Scaffold.PassingStmt (Let (_, l, e)) ->
-              recur (SRGI.Use {
-                SRGI.
-                inits  = idxs_to_vars (Scope.L.IdxSet.singleton l);
-                reads  = idxs_to_vars (li_locals (e :> 'm IL.any_node));
-                writes = SRGI.Vars.empty;
-              })
-            | Scaffold.PassingStmt stmt            -> uses (`S stmt)
-            | Scaffold.Repeat      (_, p)
-            | Scaffold.Require     p               -> uses (`P p)
-            | Scaffold.Panic                       -> recur nop  (* TODO: ? *)
-            | Scaffold.Reset       _               -> recur (reset ())
-            | Scaffold.Concat      _               -> recur nop
-            | Scaffold.Union       _               -> recur nop
-            | Scaffold.Guard       (_, _, p, f)    ->
-              (* Propagate mutations around recovery, iow, to (p, f),
-                 but not to the body of the union, t.
-                 The recover more accurately follows the union than the else
-                 but we want to collect only mutations on failing passes so
-                 we don't propagate directly to the `recover` node.  If it
-                 reaches that from the `else`, e.g. by a failing path in a
-                 recursive call, then it should be collected there. *)
-              let id_map = Scaffold.fold
-                (fun id_map c -> build_nodes fn_idx c id_map) id_map s in
-              let content = SRGI.Capture (SRG.NodeIds.of_list (
-                List.map
-                  (fun n -> ScaffoldIdMap.find n.Scaffold.id id_map)
-                  [p; f]
-              )) in
-              let node_id = make_node content s.Scaffold.id in
-              ScaffoldIdMap.add s.Scaffold.id node_id id_map
-            | Scaffold.Invoke      (callee, p, f)  ->
-              let callee_env = (Scope.F.value functions callee).env in
-              (* Alias on entry and reverse-alias on return so that
-                 locals modified/read by the bodies of functions are taken
-                 into account in the caller and vice-versa. *)
-              let alias_map, dealias_map = environment_fold2
-                (fun (alias_map, dealias_map) caller_li callee_li ->
-                  let caller = (fn_idx, caller_li) in
-                  let callee = (callee, callee_li) in
-                  let dereferenced_by_caller =
-                    match (Scope.L.value env.locals        caller_li,
-                           Scope.L.value callee_env.locals callee_li) with
-                      | SPtr  _, IData _ -> true
-                      | IData _, IData _ -> false
-                      | EData _, EData _ -> false
-                      | SPtr  _, SPtr  _ -> false
-                      | _                -> failwith "Type mismatch" in
-                  (
-                    SRGI.VarMap.add caller callee alias_map,
-                    (* If the value is dereferenced and passed by value, then
-                       don't allow mutations to flow from the caller into the
-                       callee since snapshotting in the callee will not be
-                       effective. *)
-                    if dereferenced_by_caller then
-                      dealias_map
-                    else
-                      SRGI.VarMap.add callee caller dealias_map
-                  )
-                )
-                (SRGI.VarMap.empty, SRGI.VarMap.empty)
-                env callee_env in
-              let alias   = SRGI.Alias (alias_map,   dealias_map) in
-              let dealias = SRGI.Alias (dealias_map, alias_map)   in
-              let entry_node = make_node alias   s.Scaffold.id in
-              let pass_node  = make_node dealias p.Scaffold.id in
-              let fail_node  = make_node dealias f.Scaffold.id in
-              ScaffoldIdMap.add s.Scaffold.id entry_node (
-                ScaffoldIdMap.add p.Scaffold.id pass_node (
-                  ScaffoldIdMap.add f.Scaffold.id fail_node id_map
-                )
-              )
-            | Scaffold.Decode      _
-            | Scaffold.Encode      _               ->
-              let tool_sig, writes_to_output_buffer, output_buffer_offset_opt =
-                match s.Scaffold.atom with
-                  | Scaffold.Decode d                       ->
-                    Handle.signature d,
-                    false,
-                    None
-                  | Scaffold.Encode (e, start_of_slice_idx) ->
-                    Handle.signature e,
-                    true,
-                    Some start_of_slice_idx
-                  | _ -> invalid_arg "atom is neither encode nor decode"
-              in
-              let read, written = List.fold_left
-                (fun (read, written) formal -> Signature.Formal.(
-                  let add = Scope.L.IdxSet.add in
-                  match formal with
-                    | InputBuffer  -> add env.pos (add env.limit read), written
-                    | InputCursor  -> add env.pos read,     add env.pos written
-                    | InputLimit   -> add env.limit read,               written
-                    | OutputBuffer ->
-                      add env.output_buffer read,
-                      if writes_to_output_buffer then
-                        add env.output_buffer written
-                      else
-                        written
-                    | DomainData   -> (match output_buffer_offset_opt with
-                        | Some output_buffer_offset ->
-                          add output_buffer_offset
-                            (add env.output_buffer read), written
-                        | _ -> failwith "unexpected")
-                    | EnumValue nm ->
-                      add (Var.Map.find nm env.vars) read, written
-                    | Reference (EnumValue nm) ->
-                      let idx = Var.Map.find nm env.vars in
-                      add idx read,
-                      add idx written
-                    | Reference _  ->
-                      failwith (sprintf "TODO: %s"
-                                  (Stringer.s Signature.Formal.stringer formal))
-                ))
-                (Scope.L.IdxSet.empty, Scope.L.IdxSet.empty)
-                tool_sig.Signature.formals in
-              recur (SRGI.Use {
-                SRGI.
-                inits  = SRGI.Vars.empty;
-                reads  = idxs_to_vars read;
-                writes = idxs_to_vars written;
-              }) in
-        let id_map = Scope.F.fold
-          (fun id_map fn_idx _ f ->
-            build_nodes fn_idx (Opt.require f.body) id_map)
-          id_map functions in
-        let id_map =
-          (* Assume the output buffer is observed at the end.
-             TODO: We only have to actually assume this on the passing case. *)
-          let main_out_param =
-            let main_fn = Scope.F.value functions main_fn_idx in
-            Opt.require (
-            Scope.L.fold (
-              fun x li lbl _ ->
-                if Label.equal lbl out_label then
-                  Some (SRGI.Vars.singleton (main_fn_idx, li))
-                else
-                  x
-            ) None main_fn.env.locals
-          ) in
-          let buf = SRGI.Use {
-            SRGI.
-            inits  = SRGI.Vars.empty;
-            reads  = main_out_param;
-            writes = SRGI.Vars.empty;
-          } in
-          let psink_node = make_node None buf pass_sink_scaffold.Scaffold.id in
-          let fsink_node = make_node None nop fail_sink_scaffold.Scaffold.id in
-          ScaffoldIdMap.add pass_sink_scaffold.Scaffold.id psink_node (
-            ScaffoldIdMap.add fail_sink_scaffold.Scaffold.id fsink_node (
-              id_map
-            )
-          ) in
-        let rec build_edges s =
-          let node_id = ScaffoldIdMap.find s.Scaffold.id id_map in
-          ScaffoldIdSet.iter
-            (fun branch_id ->
-              let branch_node_id = ScaffoldIdMap.find branch_id id_map in
-              add_edge node_id branch_node_id)
-            s.Scaffold.branches;
-          Scaffold.fold (fun () -> build_edges) () s in
-        List.iter build_edges
-          [source_scaffold; pass_sink_scaffold; fail_sink_scaffold];
-        Scope.F.iter (fun _ _ pfn -> build_edges (Opt.require pfn.body))
-          functions;
-        (graph, id_map, source_node)
-      end in
-      (* Group resets so that we can take some into account when computing what
-         needs to be snapshotted at others.
-
-         This implementation simply stripes resets.  It's probably overly
-         sensitive to minor changes in the grammars.
-
-         TODO: Maybe try partitioning resets into tiers based on depth in a
-         spanning-tree of the flow graph so that we are consistent w.r.t.
-         likely dominance.
-      *)
-      let committer = begin
-        let resets = (
-          SRGI.foldi
-            (fun ls_rev id _ content _ -> match content with
-              | SRGI.Content.Reset _ -> id::ls_rev
-              | _                    -> ls_rev)
-            [] snapshot_recover_graph
-        ) in
-        let n_buckets = 7 in
-        let buckets = Array.make n_buckets SRG.NodeIds.empty in
-        let rec partition modulus resets = match resets with
-          | [] -> ()
-          | hd::tl ->
-            buckets.(modulus) <- SRG.NodeIds.add hd buckets.(modulus);
-            partition ((modulus + 1) mod n_buckets) tl in
-        partition 0 resets;
-        let bucket_index = ref 0 in
-        (* A committer that successively produces a filter over a bucket. *)
-        fun () ->
-          let buckets =
-            let i = !bucket_index in
-            if i = n_buckets then
-              SRG.NodeIds.empty
-            else begin
-              let node_ids = buckets.(i) in
-              buckets.(i) <- SRG.NodeIds.empty;  (* Release for GC *)
-              incr bucket_index;
-              node_ids
-            end in
-          fun id -> SRG.NodeIds.mem id buckets
-      end in
-      (* Actually solve the graph. *)
-      SRGI.prune_unreachable snapshot_recover_graph
-        (SRG.NodeIds.singleton source_node);
-      ignore (SRGI.solve snapshot_recover_graph committer);
-      (* Log the graph. *)
-      begin
-        match opts.Opts.log_sr_graph with
-          | Some f -> f snapshot_recover_graph
-          | None   -> ()
-      end;
-      (* Rewrite Resets to reset appropriate indices. *)
-      begin
-        let rebuild_body fn_idx body = Scaffold.map_deep
-          ~pre:(
-            fun s -> match s.Scaffold.atom with
-              | Scaffold.Reset old_idxs ->
-                let node_id = ScaffoldIdMap.find s.Scaffold.id id_map in
-                let content = SRGI.content snapshot_recover_graph node_id in
-                let reset' = match content with
-                  | SRGI.Reset { SRGI.Content.vars; _ } ->
-                    let idxs = SRGI.Vars.fold
-                      (fun (fi, li) s ->
-                        assert (Scope.F.Idx.equal fi fn_idx);
-                        Scope.L.IdxSet.add li s)
-                      (* Union with old indices since it may be a maintenance
-                         hazard to lose information about indices that earlier
-                         passes determine need to be reset. *)
-                      vars old_idxs in
-                    Scaffold.Reset idxs
-                  | _                                   ->
-                    (* An unreachable reset might have been pruned. *)
-                    s.Scaffold.atom in
-                { s with Scaffold.atom = reset' }
-              | _ -> s
-          )
-          ~post:(fun s -> s) body in
-        Scope.F.iter
-          (fun fi _ pfn -> pfn.body <- Opt.map (rebuild_body fi) pfn.body)
-          functions
-      end
-    end;
-    timestamp "snapshot_and_recover";
-
-    (* Dump to log for debugging purposes. *)
-    begin
-      match opts.Opts.log_dot with
-        | None   -> ()
-        | Some f ->
-          f (
-            Scaffold.to_dot globals functions
-              source_scaffold pass_sink_scaffold fail_sink_scaffold
-          )
-    end;
-    timestamp "logged to dot";
 
     (* The concatenation of statements. *)
     let concat meta =
@@ -3413,64 +2544,6 @@ begin
         concat meta (List.map scaffold_to_stmt ls)
       | Scaffold.Union        (d, a)          ->
         Alt (meta, scaffold_to_stmt d, scaffold_to_stmt a)
-      | Scaffold.Guard        (t, r, _, _)    ->
-        let branch_pass = scaffold_to_stmt t in
-        let atom = r.Scaffold.atom in
-        let capture, branch_recover = match atom with
-          | Scaffold.Reset s ->
-            let rmeta = r.Scaffold.meta in
-            Scope.L.IdxSet.fold
-              (fun idx (pass_stmt, fail_stmt) ->
-                let locals = r.Scaffold.env.locals in
-                let lbl = Scope.L.label locals idx in
-                let typ = Scope.L.value locals idx in
-                let backup_typ, store_rhs, make_reset = match typ with
-                  | IData ArrCursor_t
-                  | IData RelCursor_t          ->
-                    IData CursorSnapshot_t,
-                    Snapshot (IRef idx),
-                    fun lhs -> SetCursor (idx, IRef lhs)
-                  | IData (InputCursor_t   k)  ->
-                    IData (InputSnapshot_t k),
-                    Snapshot (IRef idx),
-                    fun lhs -> SetCursor (idx, IRef lhs)
-                  | SPtr  t                    ->
-                    IData t,
-                    Deref (IRef idx),
-                    fun lhs -> SetPtr (idx, IRef lhs)
-                  | EData OutputBuffer_t       ->
-                    IData OutputSnapshot_t,
-                    EndOf (ERef idx),
-                    fun lhs -> Truncate (IRef lhs, idx)
-                  | EData _ | Top -> failwith "cannot snapshot external data"
-                  | IData CodeUnit_t _
-                  | IData InputSnapshot_t _
-                  | IData OutputSnapshot_t
-                  | IData CursorSnapshot_t
-                  | IData IBool_t
-                  | IData IInt_t
-                  | IData Match_t _
-                  | IData Counter_t
-                  | IData Enum_t _             ->
-                    failwith (
-                      Printf.sprintf
-                        "cannot snapshot immutable data %s in %s"
-                        (Stringer.s IL.ReprStringers.ltype typ)
-                        (Stringer.s (Stringer.option Label.stringer)
-                           (Opt.map (Scope.F.label functions)
-                              env.fn_idx))
-                    ) in
-                let bak_lbl = Label.of_string (
-                  sprintf "bak_%s" (Label.to_string lbl)) in
-                let lhs = Scope.L.add locals bak_lbl backup_typ in
-                (
-                  Block (rmeta, Let (rmeta, lhs, `IE store_rhs), pass_stmt),
-                  Block (rmeta, Mut (rmeta, make_reset lhs),     fail_stmt)
-                )
-              )
-              s (Cond (rmeta, IL._true), Cond (rmeta, IL._true))
-          | _       -> failwith "expected Reset" in
-        Block (meta, capture, Try (meta, branch_pass, branch_recover))
       | Scaffold.Decode       _
       | Scaffold.Encode       _               ->
         let tool, tool_sig, init_stmts, domain_data_opt, input_buffer_opt =
@@ -3534,10 +2607,9 @@ begin
               Some unenc_str_idx, None
             | _ -> invalid_arg "atom previously matched 3528"
         in
-        let fn_idx = fn_idx_of_handle meta tool in
         let tool_formals = tool_sig.Signature.formals in
-        let actuals_rev = List.fold_left
-          (fun actuals_rev formal -> Signature.Formal.(
+        let actuals_rev, formal_types_rev = List.fold_left
+          (fun (actuals_rev, formal_types_rev) formal -> Signature.Formal.(
             let actual = match formal, input_buffer_opt with
               | InputCursor,          None   -> `IE (IRef env.pos)
               | OutputBuffer,         _      -> `EE (ERef env.output_buffer)
@@ -3563,9 +2635,15 @@ begin
               | Reference _,          _      ->
                 failwith (sprintf "TODO: %s"
                             (Stringer.s Signature.Formal.stringer formal)) in
-            (actual::actuals_rev)
+            let formal_type = match formal with
+              | DomainData -> Top
+              | _          -> IL.typeof globals env.locals actual
+            in
+            (actual::actuals_rev, formal_type::formal_types_rev)
            ))
-          [] tool_formals in
+          ([], []) tool_formals
+        in
+        let fn_idx = fn_idx_of_handle meta tool (List.rev formal_types_rev) in
         concat meta (
           init_stmts @ [
             Call (meta, fn_idx, List.rev actuals_rev)
@@ -3681,8 +2759,6 @@ begin
 
         (* Invoke the external call if the predicate passes *)
         concat meta (capture_in_out @ [call])
-
-      | Scaffold.Reset        _               -> failwith "misplaced"
     and fn_idx_of_handle meta handle formal_types =
       let tool_label = ToolUnion.label handle in
       match Label.Map.find_opt tool_label !label_to_extern_fn with
@@ -3738,7 +2814,24 @@ begin
   let fns, main_fn_idx = xlate () in
   timestamp "completed functions";
 
-  job.Job.program <- Some (IL.Program (globals, fns, main_fn_idx));
+  (* Add instructions to the program to reset state mutated on failing paths
+     so we can backtrack to alternate branches. *)
+  let program = begin
+    let program = IL.Program (globals, fns, main_fn_idx) in
+if false then Printf.printf "Pre SIMP\n%s\n" (Stringer.s IL.SourceStringers.program program);
+if false then Printf.printf "%s\n" (String.make 60 '=');
+    let program = ILSimplify.simplify program in
+if false then Printf.printf "%s\n" (String.make 60 '=');
+if false then Printf.printf "Pre SR\n%s\n" (Stringer.s IL.SourceStringers.program program);
+if false then failwith "ABORT";
+    SnapshotRecover.fail_gracefully
+      ~debug_hooks:opts.Opts.sr_dbg_hooks
+      program
+  end in
+  timestamp "snapshot & recover";
+if false then Printf.printf "\n\nPost SR\n%s\n" (Stringer.s IL.SourceStringers.program program);
+
+  job.Job.program <- Some program;
 
   (* Store the encoder side-table if necessary. *)
   (match make_encoder_side_table () with

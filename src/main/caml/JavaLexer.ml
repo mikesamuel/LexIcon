@@ -20,6 +20,7 @@ let is_space ch = match ch with
      the ASCII CR character followed by the ASCII LF character
    ]
 *)
+
 let rec skip_space s i =
   let n = String.length s in
   if i = n then
