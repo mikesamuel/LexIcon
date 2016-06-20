@@ -1,0 +1,165 @@
+fn main (pos : IData (InputCursor_t Unicode), limit : IData (InputSnapshot_t Unicode), out : EData OutputBuffer_t) {
+  var cur_snapshot : IData (InputSnapshot_t Unicode);
+  var end_snapshot : IData OutputSnapshot_t;
+  let cur_snapshot = snapshot (pos);
+  let end_snapshot = end_of (out);
+  try {
+    call props (pos, limit, out);
+    require ! (pos < limit)
+  }
+  recover {
+    truncate (end_snapshot, out);
+    set_cursor (pos, cur_snapshot)
+  }
+}
+fn props (pos : IData (InputCursor_t Unicode), limit : IData (InputSnapshot_t Unicode), out : EData OutputBuffer_t) {
+  var token : IData (Match_t (Anchored, Unicode));
+  var out_end : IData OutputSnapshot_t;
+  var safe : SPtr (Enum_t (One [f; t]));
+  var cur_snapshot : IData (InputSnapshot_t Unicode);
+  let token = find_at (regex ([;] *), pos, limit);
+  set_cursor (pos, end_of_match (token));
+  alt {
+    {
+      let safe = (new Enum_t (One [f; t]));
+      let out_end = end_of (out);
+      alt {
+        {
+          call p_box_1 (pos, limit, out, safe)
+        } else {
+          let token = find_at (regex (([\-] ?) [A-Z_a-z] ([\-0-9A-Z_a-z] *) [:]), pos, limit);
+          require is_match (token);
+          ptr safe <- enum 0 /* f */;
+          copy_to (pos, end_of_match (token), out);
+          set_cursor (pos, end_of_match (token));
+          alt {
+            {
+              repeat {
+                call val_token_1 (pos, limit, out)
+              }
+              while true
+            } else {
+            }
+          }
+        }
+      };
+      alt {
+        {
+          require ! ((* (safe)) in ([1]));
+          truncate (out_end, out)
+        } else {
+        }
+      };
+      alt {
+        {
+          repeat {
+            let token = find_at (regex ([;] +), pos, limit);
+            require is_match (token);
+            let cur_snapshot = snapshot (pos);
+            try {
+              set_cursor (pos, end_of_match (token));
+              append (";", out);
+              call prop (pos, limit, out)
+            }
+            recover {
+              set_cursor (pos, cur_snapshot)
+            }
+          }
+          while true
+        } else {
+        }
+      };
+      let token = find_at (regex ([;] *), pos, limit);
+      set_cursor (pos, end_of_match (token))
+    } else {
+    }
+  }
+}
+fn p_box_1 (pos : IData (InputCursor_t Unicode), limit : IData (InputSnapshot_t Unicode), out : EData OutputBuffer_t, safe : SPtr (Enum_t (One [f; t]))) {
+  var token : IData (Match_t (Anchored, Unicode));
+  var out_end : IData OutputSnapshot_t;
+  let token = find_at (regex (([Ww] [Ii] [Dd] [Tt] [Hh] | [Hh] [Ee] [Ii] [Gg] [Hh] [Tt] | [Ll] [Ee] [Ff] [Tt] | [Rr] [Ii] [Gg] [Hh] [Tt] | [Tt] [Oo] [Pp] | [Bb] [Oo] [Tt] [Tt] [Oo] [Mm]) [:]), pos, limit);
+  require is_match (token);
+  copy_to (pos, end_of_match (token), out);
+  set_cursor (pos, end_of_match (token));
+  alt {
+    {
+      let token = find_at (regex ([.] [0-9] + | [0-9] + (([.] [0-9] +) ?)), pos, limit);
+      require is_match (token);
+      ptr safe <- enum 1 /* t */;
+      copy_to (pos, end_of_match (token), out);
+      set_cursor (pos, end_of_match (token));
+      alt {
+        {
+          let token = find_at (regex ([%] | ([\-] ?) [A-Z_a-z] ([\-0-9A-Z_a-z] *)), pos, limit);
+          require is_match (token);
+          copy_to (pos, end_of_match (token), out);
+          set_cursor (pos, end_of_match (token))
+        } else {
+          append ("px", out)
+        }
+      }
+    } else {
+      let out_end = end_of (out);
+      alt {
+        {
+          repeat {
+            call val_token_2 (pos, limit)
+          }
+          while true
+        } else {
+        }
+      };
+      ptr safe <- enum 0 /* f */;
+      truncate (out_end, out);
+      append ("invalid", out)
+    }
+  }
+}
+fn val_token_1 (pos : IData (InputCursor_t Unicode), limit : IData (InputSnapshot_t Unicode), out : EData OutputBuffer_t) {
+  var token : IData (Match_t (Anchored, Unicode));
+  let token = find_at (regex (([\-] ?) [A-Z_a-z] ([\-0-9A-Z_a-z] *) | ([.] [0-9] + | [0-9] + (([.] [0-9] +) ?)) ([%] | ([\-] ?) [A-Z_a-z] ([\-0-9A-Z_a-z] *) | ()) | [\x00-!#-&(-:<-z|~-\U0010ffff]), pos, limit);
+  require is_match (token);
+  copy_to (pos, end_of_match (token), out);
+  set_cursor (pos, end_of_match (token))
+}
+fn prop (pos : IData (InputCursor_t Unicode), limit : IData (InputSnapshot_t Unicode), out : EData OutputBuffer_t) {
+  var safe : SPtr (Enum_t (One [f; t]));
+  var token : IData (Match_t (Anchored, Unicode));
+  var out_end : IData OutputSnapshot_t;
+  let safe = (new Enum_t (One [f; t]));
+  let out_end = end_of (out);
+  alt {
+    {
+      call p_box_1 (pos, limit, out, safe)
+    } else {
+      let token = find_at (regex (([\-] ?) [A-Z_a-z] ([\-0-9A-Z_a-z] *) [:]), pos, limit);
+      require is_match (token);
+      ptr safe <- enum 0 /* f */;
+      copy_to (pos, end_of_match (token), out);
+      set_cursor (pos, end_of_match (token));
+      alt {
+        {
+          repeat {
+            call val_token_1 (pos, limit, out)
+          }
+          while true
+        } else {
+        }
+      }
+    }
+  };
+  alt {
+    {
+      require ! ((* (safe)) in ([1]));
+      truncate (out_end, out)
+    } else {
+    }
+  }
+}
+fn val_token_2 (pos : IData (InputCursor_t Unicode), limit : IData (InputSnapshot_t Unicode)) {
+  var token : IData (Match_t (Anchored, Unicode));
+  let token = find_at (regex (([\-] ?) [A-Z_a-z] ([\-0-9A-Z_a-z] *) | ([.] [0-9] + | [0-9] + (([.] [0-9] +) ?)) ([%] | ([\-] ?) [A-Z_a-z] ([\-0-9A-Z_a-z] *) | ()) | [\x00-!#-&(-:<-z|~-\U0010ffff]), pos, limit);
+  require is_match (token);
+  set_cursor (pos, end_of_match (token))
+}

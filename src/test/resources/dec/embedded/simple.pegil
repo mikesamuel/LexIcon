@@ -1,0 +1,129 @@
+test:
+fn main (pos : IData (InputCursor_t Octet), limit : IData (InputSnapshot_t Octet), out : EData OutputBuffer_t) {
+  call start (pos, limit, out);
+  require ! (pos < limit)
+}
+fn start (pos : IData (InputCursor_t Octet), limit : IData (InputSnapshot_t Octet), out : EData OutputBuffer_t) {
+  var extent_pos : IData (InputCursor_t Octet);
+  var extent_limit : IData (InputSnapshot_t Octet);
+  var token_1 : IData (Match_t (Anchored, Octet));
+  var decode_pos : IData (InputCursor_t Octet);
+  var decode_out : EData OutputBuffer_t;
+  var embed_input : EData (InputBuffer_t Unicode);
+  var embed_pos : IData (InputCursor_t Unicode);
+  var embed_limit : IData (InputSnapshot_t Unicode);
+  var token_2 : IData (Match_t (Anchored, Unicode));
+  var token_3 : IData (Match_t (Anchored, Unicode));
+  var cont_pos : IData (InputCursor_t Unicode);
+  let extent_pos = copy_cursor (pos);
+  let token_1 = find_at (regex (([\x00-$&-\x7f] | [%] [0-9A-Fa-f] [0-9A-Fa-f]) *), extent_pos, limit);
+  set_cursor (extent_pos, end_of_match (token_1));
+  let extent_limit = snapshot (extent_pos);
+  let decode_pos = copy_cursor (pos);
+  let decode_out = alloc_buffer (snapshot (pos), extent_limit);
+  call start_1 (decode_pos, extent_limit, decode_out);
+  let embed_input = freeze_buffer (decode_out, Unicode);
+  let embed_pos = start_of (embed_input);
+  let embed_limit = end_of (embed_input);
+  alt {
+    {
+      alt {
+        {
+          let token_2 = find_at (regex ([\"]), embed_pos, embed_limit);
+          require is_match (token_2);
+          append_mks ([StartUserOp (3, (* CreateStringValue *))], out);
+          set_cursor (embed_pos, end_of_match (token_2));
+          alt {
+            {
+              repeat {
+                alt {
+                  {
+                    let token_2 = find_at (regex ([\x00-!#-\[\]-\U0010ffff]), embed_pos, embed_limit);
+                    require is_match (token_2);
+                    copy_to (embed_pos, end_of_match (token_2), out);
+                    set_cursor (embed_pos, end_of_match (token_2))
+                  } else {
+                    let token_2 = find_at (regex ([\\]), embed_pos, embed_limit);
+                    require is_match (token_2);
+                    let cont_pos = copy_cursor (embed_pos, end_of_match (token_2));
+                    let token_3 = find_at (regex ([\x00-\U0010ffff]), cont_pos, embed_limit);
+                    require is_match (token_3);
+                    set_cursor (embed_pos, end_of_match (token_2));
+                    copy_to (embed_pos, end_of_match (token_3), out);
+                    set_cursor (embed_pos, end_of_match (token_3))
+                  }
+                }
+              }
+              while true
+            } else {
+            }
+          };
+          let token_2 = find_at (regex ([\"]), embed_pos, embed_limit);
+          require is_match (token_2)
+        } else {
+          let token_2 = find_at (regex (n u l l), embed_pos, embed_limit);
+          require is_match (token_2);
+          append_mks ([StartUserOp (0, (* CreateNullValue *))], out)
+        }
+      };
+      set_cursor (embed_pos, end_of_match (token_2));
+      append_mks ([EndUserOp], out)
+    } else {
+      panic
+    }
+  };
+  require ! (embed_pos < embed_limit);
+  set_cursor (pos, extent_limit)
+}
+extern fn start_1 = start_1 (IData (InputCursor_t Octet), IData (InputSnapshot_t Octet), EData OutputBuffer_t);
+
+start_1:
+fn main (pos : IData (InputCursor_t Octet), limit : IData (InputSnapshot_t Octet), out : EData OutputBuffer_t) {
+  var end_snapshot : IData OutputSnapshot_t;
+  let end_snapshot = end_of (out);
+  try {
+    call start (pos, limit, out);
+    require ! (pos < limit)
+  }
+  recover {
+    truncate (end_snapshot, out)
+  }
+}
+fn start (pos : IData (InputCursor_t Octet), limit : IData (InputSnapshot_t Octet), out : EData OutputBuffer_t) {
+  var token_1 : IData (Match_t (Anchored, Octet));
+  var out_end : IData OutputSnapshot_t;
+  var token_2 : IData (Match_t (Anchored, Octet));
+  var code_unit : IData (CodeUnit_t Octet);
+  var cont_pos : IData (InputCursor_t Octet);
+  append_mks ([StartUserOp (3, (* CreateStringValue *))], out);
+  alt {
+    {
+      repeat {
+        alt {
+          {
+            let token_1 = find_at (regex ([\x00-$&-\x7f]), pos, limit);
+            require is_match (token_1);
+            copy_to (pos, end_of_match (token_1), out);
+            set_cursor (pos, end_of_match (token_1))
+          } else {
+            let token_1 = find_at (regex ([%]), pos, limit);
+            require is_match (token_1);
+            let out_end = end_of (out);
+            let cont_pos = copy_cursor (pos, end_of_match (token_1));
+            let token_2 = find_at (regex ([0-9A-Fa-f] [0-9A-Fa-f]), cont_pos, limit);
+            require is_match (token_2);
+            set_cursor (pos, end_of_match (token_1));
+            copy_to (pos, end_of_match (token_2), out);
+            let code_unit = atoi (slice_buffer (out, out_end, end_of (out), Octet), Octet, 16);
+            set_cursor (pos, end_of_match (token_2));
+            truncate (out_end, out);
+            append (cptoa (code_unit), out)
+          }
+        }
+      }
+      while true
+    } else {
+    }
+  };
+  append_mks ([EndUserOp], out)
+}

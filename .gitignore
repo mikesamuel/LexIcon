@@ -33,3 +33,7 @@ setup.log
 
 ## Ignore MacOS droppings
 .DS_Store
+
+
+# Ignore output directory
+target

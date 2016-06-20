@@ -1,0 +1,41 @@
+digraph G {
+  N0 [fontname="monospace", label="AGuard [Start] # 0"];
+  N1 [fontname="monospace", label="Call 1 # 1"];
+  N2 [fontname="monospace", label="AGuard [End] # 2"];
+  N3 [fontname="monospace", label="Succeed # 3"];
+  N4 [fontname="monospace", label="AGuard [StartString] # 4"];
+  N5 [fontname="monospace", label="NoEffect # 5"];
+  N6 [fontname="monospace", label="Loop # 6"];
+  N7 [fontname="monospace", label="AGuard [\\x00-\\U0010ffff] # 7"];
+  N8 [fontname="monospace", label="EmitValue any # 8"];
+  N9 [fontname="monospace", label="Succeed # 9"];
+  N10 [fontname="monospace", label="AGuard [EndString] # 10"];
+  N11 [fontname="monospace", label="Succeed # 11"];
+  
+  subgraph cluster_SG1 { style=dotted;
+    label="start#1";
+    N11;N10;N9;N8;N7;N6;N5;N4; };
+  subgraph cluster_SG0 { style=dotted;
+    label="_.main#0";
+    N3;N2;N1;N0; };
+  
+  edge [dir=forward];
+  N0 -> N1 [style=solid, weight=2, label="", color="#00FF00",
+            fontcolor="#008000"];
+  N1 -> N2 [style=solid, weight=2];
+  N1 -> N4 [style=dashed, weight=1];
+  N2 -> N3 [style=solid, weight=2, label="", color="#FF0000",
+            fontcolor="#800000"];
+  N4 -> N5 [style=solid, weight=2, label="String", color="#00FF00",
+            fontcolor="#008000"];
+  N5 -> N6 [style=solid, weight=2];
+  N5 -> N10 [style=solid, weight=2];
+  N6 -> N7 [style=solid, weight=2];
+  N6 -> N10 [style=solid, weight=2];
+  N7 -> N8 [style=solid, weight=2];
+  N8 -> N9 [style=solid, weight=2, label="char", color="#FF0000",
+            fontcolor="#800000"];
+  N10 -> N11 [style=solid, weight=2, label="String", color="#FF0000",
+              fontcolor="#800000"];
+  
+  }

@@ -1,0 +1,152 @@
+<html>
+<title>Visualize Output Buffer</title>
+<style>
+.Op { display:inline-block; background:#eef; font-size:75%; border:1px solid blue; margin:0 2px }
+.Op.EndUserOp { background: #efe }
+.Op.CancelUserOp { background: #eee }
+.Op.Bad { background:#fdd !important }
+.hilit { border-width:2px; }
+</style>
+<body>
+<p>Paste hex-encoded output buffer content here:
+<p><textarea id="buffer-content" cols=80 rows=15>
+int_to_op
+["Replace \u0022\u0022", "Reencode", "Replace \u0022 \u0022", "Reencode", "Replace \u0022(\u0022", "Reencode", "Replace \u0022)\u0022", "Reencode", "Replace \u0022 null \u0022", "Reencode", "Replace \u0022\u005cn\u0022", "Reencode", "Replace \u0022'\u0022", null, "Replace \u0022\u005c\u005cx27\u0022", null, "Replace \u00220\u0022", null, "Replace \u0022\u005c\u005c\u0022", null, "Replace \u0022x22\u0022", null, "Replace \u0022x26\u0022", null, "Replace \u0022x27\u0022", null, "Replace \u0022x3c\u0022", null, "Replace \u0022x3e\u0022"]
+
+output_buffer
+"\xff\x08\xff\x02\xfd\xff\x0c\xfdf\xff\x0c\xfd\xff\x02\xfd\xff\x0c\xfdb\xff\x0c\xfd\xff\x02\xfd\xff\x0c\xfdb\xff\x0c\xfd4\xff\x0c\xfdprototype\xff\x0c\xfd\xff\x00\xff\x02\xfd\xfd"
+</textarea>
+
+<p><button type=button onclick="visualize()">
+Visualize
+</button>
+
+<hr>
+
+<div id="pretty-buffer"></div>
+
+<script>
+var escapeSequence = {
+  n: '\n',
+  r: '\r',
+  t: '\t',
+  f: '\f'
+};
+function unescapeC(_, hex, one) {
+  if (hex) { return String.fromCharCode(parseInt(hex, 16)); }
+  return escapeSequence[one] || one;
+}
+function pctByteEscape(c) {
+  var hex = c.charCodeAt(0).toString(16);
+  return (hex.length === 1 ? '%0' : '%') + hex;
+}
+function userOpMaker(opDescriptions) {
+  return function (opIndex) {
+    opIndex = opIndex | 0;
+    var desc = opDescriptions[opIndex] || 'UOp ' + opIndex;
+    return '<span class="Op UserOp UserOp' + opIndex + '">' + desc + '</span>';
+  };
+}
+function visualize() {
+  var bufferContent = document.getElementById('buffer-content').value;
+
+  var match = bufferContent.match(/^\s*int_to_op\n([^\n]+)\n\n/);
+  var opDescriptions = [];
+  if (match) {
+    bufferContent = bufferContent.substring(match[0].length);
+    try {
+      opDescriptions = JSON.parse(match[1]);
+    } catch (e) {
+      console.log(e);
+    }
+  }
+  var userOp = userOpMaker(opDescriptions);
+
+  var bufferHtml = bufferContent
+    .replace(/^\s*(?:output_buffer\s+)?\"|"\s*$/g, '')
+    .replace(/\\(?:x([0-9a-fA-F]{2})|(.))/g,
+             unescapeC)
+    // HTML escape so we can turn markers into tags
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  // Put spans around markers.
+  bufferHtml = bufferHtml
+    .replace(
+      /\xff([\x00-\x7f])/g,
+      function (_, userOpIdx) { return userOp(userOpIdx.charCodeAt(0)); })
+    .replace(
+      /\xfe([\x00-\x7f])/g,
+      function (_, encIdx) { return pushEncoder(encIdx.charCodeAt(0)); })
+    .replace(/\xfd/g, '<span class="Op EndUserOp">End</span>')
+    .replace(/\xfc\x00/g, '<span class="Op CancelUserOp">Cancel</span>')
+    .replace(/\xfc\x01/g, '<span class="Op StartLR">StartLR</span>')
+    .replace(/\xfc\x02/g, '<span class="Op EndLR">EndLR</span>')
+    .replace(/\xfc\x03/g, '<span class="Op StartPushback">PB</span>')
+    .replace(/\xfc\x04/g, '<span class="Op EndPushback">/PB</span>')
+    .replace(/\xfc\x05/g, '<span class="Op PopEnc">Pop</span>');
+
+  // Decode UTF-8.
+  bufferHtml = decodeURIComponent(
+    bufferHtml.replace(/[%\x80-\xff]/g, pctByteEscape)
+  );
+
+  var prettyBuffer = document.getElementById('pretty-buffer');
+  prettyBuffer.innerHTML = bufferHtml;
+
+  // Walk contents of prettyBuffer and add additional classes to operators.
+  (function () {
+    var open = [];
+    for (var child = prettyBuffer.firstChild; child;
+         child = child.nextSibling) {
+      if (child.nodeType !== 1) { continue; }
+      if (hasClass(child, 'UserOp')) {
+        open.push(child);
+      } else if (hasClass(child, 'EndUserOp')) {
+        var start = open.pop();
+        if (start) {
+          start.className += ' Ended';
+          rollover(start, child);
+        } else {
+          child.className += ' Bad';
+        }
+      } else if (hasClass(child, 'CancelUserOp')) {
+        var start = open.pop();
+        if (start) {
+          start.className += ' Cancelled';
+          rollover(start, child);
+        } else {
+          child.className += ' Bad';
+        }
+      }
+    }
+    while (open.length) {
+      open.pop().className += ' Bad';
+    }
+  }());
+}
+function hasClass(e, cl) {
+  return RegExp('\\b' + cl + '\\b').test(e.className);
+}
+function rollover(a, b) {
+  a.onmouseover = hilite(b);
+  b.onmouseover = hilite(a);
+}
+var hilite = (function () {
+  var hilit = null;
+  return function (e) {
+    return function () {
+      if (hilit === e) { return; }
+      if (hilit) {
+        hilit.className = hilit.className.replace(/\bhilit\b/g, '');
+      }
+      hilit = e;
+      hilit.className += ' hilit';
+    };
+  };
+})();
+
+visualize();
+</script>
+</html>

@@ -2413,8 +2413,8 @@ module Simplify = struct
   end
   (** [escaping s] is the set of jumps that could escape from a statement.
       This is used for debugging other code which makes similar predictions. *)
-  let _ = escaping
 
+  let _ = escaping
 
   let eliminate_dead_code ?(is_fn_body=false) stmt = begin
     let rec elim ?(label=None) stmt = match stmt with

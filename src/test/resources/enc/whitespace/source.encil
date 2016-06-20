@@ -1,0 +1,5 @@
+main:
+fn start (out : EData OutputBuffer_t, inp : Top) {
+  require inp is Null_t;
+  append (" null", out)
+}

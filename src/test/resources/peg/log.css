@@ -1,0 +1,22 @@
+table td {
+  border: 1px solid black;
+  margin: 0;
+  padding: 2px
+}
+
+table { 
+  border-spacing:0;
+  border-collapse:collapse;
+}
+
+table tr td.divider {
+  background-color: black
+}
+
+table tr td.divider hr {
+  display:none
+}
+
+tr.entered td { background-color: #ddd }
+
+code { white-space: pre-wrap; display: block; width: 40em }

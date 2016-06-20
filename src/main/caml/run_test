@@ -63,8 +63,12 @@ $test =~ s/\.(byte|native)$/Test$&/ unless $test =~ /Tests?\.(byte|native)$/;
 
 $test = "./$test"                   unless $test =~ "/";
 
-my @qflags  = shell_quote (@flags);
-my @qargs   = shell_quote (@args);
-my ($qtest) = shell_quote ($test);
+my $caml_dir = $0;
+$caml_dir =~ s/\/[^\/]*$//;
 
-exec qq'ocaml make.ml $qtest && $qtest @qflags -- @qargs\n';
+my @qflags      = shell_quote (@flags);
+my @qargs       = shell_quote (@args);
+my ($qtest)     = shell_quote ($test);
+my ($qcaml_dir) = shell_quote ($caml_dir);
+
+exec qq'cd $qcaml_dir && ocaml make.ml $qtest && $qtest @qflags -- @qargs\n';

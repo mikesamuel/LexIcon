@@ -83,7 +83,7 @@ let common_terms =
           let ltrs prefix f = List.map
             (fun c ->
               Printf.sprintf (prefix ^^ "_%c") c,
-              chars (f (Char.uppercase c) c))
+              chars (f (Char.uppercase_ascii c) c))
             ltrs
           in
           List.flatten [

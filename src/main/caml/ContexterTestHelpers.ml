@@ -26,8 +26,8 @@ module Toolbox = Toolbox.Make (Reporting)
 
 let base_dirs = {
   FTS.TestDirs.
-  input_dir  = Path.join_strs FTS.run_dir ["test-files";   "con"];
-  output_dir = Path.join_strs FTS.run_dir ["test-outputs"; "con"];
+  input_dir  = Path.join_str TestConfig.test_files_dir   "con";
+  output_dir = Path.join_str TestConfig.test_outputs_dir "con";
 }
 
 

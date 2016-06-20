@@ -37,8 +37,7 @@ let start_prod_name = Identifier.make (Identifier.Namespace.default) "start"
 let start : Reporting.meta_t G.Start.t = G.Start.named start_prod_name
 let start_label = Label.of_identifier start_prod_name
 
-let test_file_list_file = Path.join_strs run_dir
-  ["test-outputs"; "test_file_list.txt"]
+let test_file_list_file = Path.join_str TestConfig.test_outputs_dir "test_file_list.txt"
 (* truncate it *)
 let _ = Path.write ignore test_file_list_file
 

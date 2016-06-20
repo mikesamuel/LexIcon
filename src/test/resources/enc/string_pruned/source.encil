@@ -1,0 +1,37 @@
+main:
+fn start (out : EData OutputBuffer_t, inp : Top) {
+  var str : EData (InputBuffer_t Octet);
+  var cur : IData (InputCursor_t Octet);
+  var chr : IData (CodeUnit_t Octet);
+  alt {
+    {
+      require inp is InputBuffer_t Octet;
+      let str = inp;
+      let cur = start_of (str);
+      append ("\"", out);
+      alt {
+        {
+          repeat {
+            require ! (empty (cur));
+            let chr = read (cur);
+            alt {
+              {
+                require chr in ((-∞-'!'] ['#'-'&'] ['('-'['] [']'-+∞))
+              } else {
+                append ("\\", out)
+              }
+            };
+            append (cptoa (chr), out);
+            incr cur
+          }
+          while true
+        } else {
+        }
+      };
+      append ("\"", out)
+    } else {
+      require inp is Null_t;
+      append ("null", out)
+    }
+  }
+}

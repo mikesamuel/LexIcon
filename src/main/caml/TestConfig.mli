@@ -17,6 +17,15 @@
 (** Extracts CLI arguments into flags and filter arguments for use by the test
     runner. *)
 
+(* src/main/caml -- test directory / run_dir *)
+(* src/test/resources -- test files *)
+(* target/test-outputs -- output_dir *)
+val run_dir : Path.t
+val project_dir : Path.t
+val test_files_dir : Path.t
+val test_outputs_dir : Path.t
+
+
 val test_flags : (string * string) list
 (** key-value pairs.  Arguments [--test.foo bar] and [--test.foo=bar] contribute
     [("--test.foo", "bar")] while single dash flags [-test.x] contribute an

@@ -1,0 +1,30 @@
+main:
+fn start (out : EData OutputBuffer_t, inp : Top) {
+  var str : EData (InputBuffer_t Unicode);
+  var cur : IData (InputCursor_t Unicode);
+  var chr : IData (CodeUnit_t Unicode);
+  var end_snapshot : IData OutputSnapshot_t;
+  require inp is InputBuffer_t Unicode;
+  let str = inp;
+  let cur = start_of (str);
+  require ! (empty (cur));
+  let chr = read (cur);
+  let end_snapshot = end_of (out);
+  try {
+    append ("'", out);
+    alt {
+      {
+        require chr in ((-∞-'&'] ['('-'['] [']'-+∞))
+      } else {
+        append ("\\", out)
+      }
+    };
+    require empty (lookahead (cur, 1));
+    append (cptoa (chr), out);
+    incr cur;
+    append ("'", out)
+  }
+  recover {
+    truncate (end_snapshot, out)
+  }
+}

@@ -1,0 +1,52 @@
+fn main (pos : IData (InputCursor_t Unicode), limit : IData (InputSnapshot_t Unicode), out : EData OutputBuffer_t) {
+  call start (pos, limit, out);
+  require ! (pos < limit)
+}
+fn start (pos : IData (InputCursor_t Unicode), limit : IData (InputSnapshot_t Unicode), out : EData OutputBuffer_t) {
+  var token : IData (Match_t (Anchored, Unicode));
+  alt {
+    {
+      repeat {
+        alt {
+          {
+            let token = find_at (regex ([\x00-;=-\U0010ffff] +), pos, limit);
+            require is_match (token);
+            copy_to (pos, end_of_match (token), out);
+            set_cursor (pos, end_of_match (token))
+          } else {
+            call tag (pos, limit, out)
+          }
+        }
+      }
+      while true
+    } else {
+    }
+  }
+}
+fn tag (pos : IData (InputCursor_t Unicode), limit : IData (InputSnapshot_t Unicode), out : EData OutputBuffer_t) {
+  var tag_1 : SPtr (Enum_t (One [safe; unsafe]));
+  var token : IData (Match_t (Anchored, Unicode));
+  var out_end : IData OutputSnapshot_t;
+  let tag_1 = (new Enum_t (One [safe; unsafe]));
+  alt {
+    {
+      let token = find_at (regex ( (?= [<] ([/] ?) [bip] (?!= [0-9a-z]))), pos, limit);
+      require is_match (token);
+      ptr tag_1 <- enum 0 /* safe */
+    } else {
+      ptr tag_1 <- enum 1 /* unsafe */
+    }
+  };
+  let out_end = end_of (out);
+  let token = find_at (regex ([<] ([/] ?) [a-z] ([0-9a-z] *) [>]), pos, limit);
+  require is_match (token);
+  copy_to (pos, end_of_match (token), out);
+  alt {
+    {
+      require ! ((* (tag_1)) in ([0]));
+      truncate (out_end, out)
+    } else {
+    }
+  };
+  set_cursor (pos, end_of_match (token))
+}

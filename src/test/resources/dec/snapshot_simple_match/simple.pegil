@@ -1,0 +1,46 @@
+fn main (pos : IData (InputCursor_t Octet), limit : IData (InputSnapshot_t Octet), out : EData OutputBuffer_t) {
+  var cur_snapshot : IData (InputSnapshot_t Octet);
+  var end_snapshot : IData OutputSnapshot_t;
+  let cur_snapshot = snapshot (pos);
+  let end_snapshot = end_of (out);
+  try {
+    call start (pos, limit, out);
+    require ! (pos < limit)
+  }
+  recover {
+    truncate (end_snapshot, out);
+    set_cursor (pos, cur_snapshot)
+  }
+}
+fn start (pos : IData (InputCursor_t Octet), limit : IData (InputSnapshot_t Octet), out : EData OutputBuffer_t) {
+  var token : IData (Match_t (Anchored, Octet));
+  var cur_snapshot : IData (InputSnapshot_t Octet);
+  var end_snapshot : IData OutputSnapshot_t;
+  alt {
+    {
+      let token = find_at (regex (h e l l o), pos, limit);
+      require is_match (token);
+      let cur_snapshot = snapshot (pos);
+      let end_snapshot = end_of (out);
+      try {
+        append ("hello", out);
+        set_cursor (pos, end_of_match (token));
+        let token = find_at (regex ([!]), pos, limit);
+        require is_match (token);
+        append_mks ([StartUserOp (4, (* CreateArrayValue *))], out);
+        append ("!", out)
+      }
+      recover {
+        truncate (end_snapshot, out);
+        set_cursor (pos, cur_snapshot)
+      }
+    } else {
+      let token = find_at (regex (w o r l d), pos, limit);
+      require is_match (token);
+      append_mks ([StartUserOp (0, (* CreateNullValue *))], out);
+      append ("world", out)
+    }
+  };
+  set_cursor (pos, end_of_match (token));
+  append_mks ([EndUserOp], out)
+}

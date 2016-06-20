@@ -1,0 +1,69 @@
+fn main (pos : IData (InputCursor_t Octet), limit : IData (InputSnapshot_t Octet), out : EData OutputBuffer_t) {
+  var cur_snapshot : IData (InputSnapshot_t Octet);
+  var end_snapshot : IData OutputSnapshot_t;
+  let cur_snapshot = snapshot (pos);
+  let end_snapshot = end_of (out);
+  try {
+    call start (pos, limit, out);
+    require ! (pos < limit)
+  }
+  recover {
+    truncate (end_snapshot, out);
+    set_cursor (pos, cur_snapshot)
+  }
+}
+fn start (pos : IData (InputCursor_t Octet), limit : IData (InputSnapshot_t Octet), out : EData OutputBuffer_t) {
+  var a : SPtr (Enum_t (One [x; y]));
+  var token : IData (Match_t (Anchored, Octet));
+  var cur_snapshot : IData (InputSnapshot_t Octet);
+  var end_snapshot : IData OutputSnapshot_t;
+  let a = (new Enum_t (One [x; y]));
+  alt {
+    {
+      let token = find_at (regex (w), pos, limit);
+      require is_match (token);
+      let cur_snapshot = snapshot (pos);
+      let end_snapshot = end_of (out);
+      try {
+        append ("w", out);
+        set_cursor (pos, end_of_match (token));
+        alt {
+          {
+            let token = find_at (regex (x), pos, limit);
+            require is_match (token);
+            ptr a <- enum 0 /* x */;
+            append ("x", out)
+          } else {
+            let token = find_at (regex (y), pos, limit);
+            require is_match (token);
+            ptr a <- enum 1 /* y */;
+            append ("y", out)
+          }
+        };
+        set_cursor (pos, end_of_match (token));
+        alt {
+          {
+            require (* (a)) in ([0]);
+            let token = find_at (regex (x), pos, limit);
+            require is_match (token);
+            append ("x", out);
+            set_cursor (pos, end_of_match (token))
+          } else {
+          }
+        };
+        let token = find_at (regex ([.]), pos, limit);
+        require is_match (token);
+        append (".", out)
+      }
+      recover {
+        truncate (end_snapshot, out);
+        set_cursor (pos, cur_snapshot)
+      }
+    } else {
+      let token = find_at (regex (z), pos, limit);
+      require is_match (token);
+      append ("z", out)
+    }
+  };
+  set_cursor (pos, end_of_match (token))
+}

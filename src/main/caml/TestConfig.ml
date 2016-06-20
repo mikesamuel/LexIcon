@@ -16,6 +16,15 @@
 
 include DisableGenericCompare
 
+
+(* src/main/caml -- test directory / run_dir *)
+(* src/test/resources -- test files *)
+(* target/test-outputs -- output_dir *)
+let run_dir = Path.dirname (Path.canon (Path.of_string Sys.executable_name))
+let project_dir = Path.dirname (Path.dirname (Path.dirname run_dir))
+let test_files_dir = Path.join_strs project_dir ["src"; "test"; "resources"]
+let test_outputs_dir = Path.join_strs project_dir ["target"; "test-outputs"]
+  
 let (test_flags        : (string * string) list),
     (* Flags that may be examined by test-cases.
        Some tests dump intermediate results like logs and DOT files for

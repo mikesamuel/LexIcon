@@ -1,0 +1,19 @@
+main:
+fn start (out : EData OutputBuffer_t, inp : Top) {
+  alt {
+    {
+      require inp is Null_t;
+      append ("n", out)
+    } else {
+      require inp is Bool_t;
+      alt {
+        {
+          require ! ((to_prim (inp, Bool_t)));
+          append ("f", out)
+        } else {
+          append ("t", out)
+        }
+      }
+    }
+  }
+}

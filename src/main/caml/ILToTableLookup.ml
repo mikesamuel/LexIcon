@@ -179,11 +179,15 @@ module Predicates = struct
             when Equal.iexpr a c && Equal.iexpr b d ->
             let k = Opt.map2 CodeUnit.Range.Set.union k0 k1 in
             Some (Lt (Lookahead (a, IntLit (min n m), k), b))
-          | Lt (a, b), Lt (Lookahead (c, _, _), d)
           | Lt (Lookahead (a, _, _), b), Lt (c, d)
             when Equal.iexpr a c && Equal.iexpr b d ->
             Some (Lt (a, b))
+          | Lt (a, b), Lt (Lookahead (c, _, _), d)
+            when Equal.iexpr a c && Equal.iexpr b d ->
+            Some (Lt (a, b))
           | Nand [Empty a], Nand [Empty (Lookahead (b, _, _))]
+            when Equal.iexpr a b ->
+            Some (Nand [Empty a])
           | Nand [Empty (Lookahead (a, _, _))], Nand [Empty b]
             when Equal.iexpr a b ->
             Some (Nand [Empty a])
@@ -193,6 +197,8 @@ module Predicates = struct
             let k = Opt.map2 CodeUnit.Range.Set.union k0 k1 in
             Some (Nand [Empty (Lookahead (a, IntLit (min n m), k))])
           | Empty a, Empty (Lookahead (b, n, k))
+            when Equal.iexpr a b ->
+            Some (Empty (Lookahead (a, n, k)))
           | Empty (Lookahead (a, n, k)), Empty b
             when Equal.iexpr a b ->
             Some (Empty (Lookahead (a, n, k)))

@@ -1,0 +1,73 @@
+main:
+fn start (out : EData OutputBuffer_t, inp : Top) {
+  call json_jsonvalue (out, inp)
+}
+fn json_jsonescape_sequence (out : EData OutputBuffer_t, inp : IData (CodeUnit_t Unicode)) {
+  append ("\\", out);
+  alt {
+    {
+      require inp in (['\"'] ['\\']);
+      append (cptoa (inp), out)
+    } else {
+      require inp in ([0x8]);
+      append ("b", out)
+    } else {
+      require inp in ([0xc]);
+      append ("f", out)
+    } else {
+      require inp in ([0xa]);
+      append ("n", out)
+    } else {
+      require inp in ([0xd]);
+      append ("r", out)
+    } else {
+      require inp in ([0x9]);
+      append ("t", out)
+    } else {
+      append ("u", out);
+      append (ntoa (inp, {
+            ns = hex;
+            sequences = [{
+                min = 0x0;
+                limit = 0x10000;
+                bounded = true;
+                n_digits = 4
+              }
+            ]
+          }
+        ), out)
+    }
+  }
+}
+fn json_jsonstring (out : EData OutputBuffer_t, inp : Top) {
+  var str : EData (InputBuffer_t Unicode);
+  var cur : IData (InputCursor_t Unicode);
+  var chr : IData (CodeUnit_t Unicode);
+  require inp is InputBuffer_t Unicode;
+  let str = inp;
+  let cur = start_of (str);
+  append ("\"", out);
+  alt {
+    {
+      repeat {
+        require ! (empty (cur));
+        let chr = read (cur);
+        alt {
+          {
+            require chr in ([' '-'!'] ['#'-'['] [']'-+∞));
+            append (cptoa (chr), out)
+          } else {
+            call json_jsonescape_sequence (out, chr)
+          }
+        };
+        incr cur
+      }
+      while true
+    } else {
+    }
+  };
+  append ("\"", out)
+}
+fn json_jsonvalue (out : EData OutputBuffer_t, inp : Top) {
+  call json_jsonstring (out, inp)
+}

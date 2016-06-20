@@ -1,0 +1,46 @@
+main:
+fn start (out : EData OutputBuffer_t, inp : Top) {
+  var arr : EData Array_t;
+  var cur : IData ArrCursor_t;
+  var elt : Top;
+  var end_snapshot_1 : IData OutputSnapshot_t;
+  var end_snapshot_2 : IData OutputSnapshot_t;
+  var end_snapshot_3 : IData OutputSnapshot_t;
+  require inp is Array_t;
+  let arr = inp;
+  let cur = start_of (arr);
+  let end_snapshot_3 = end_of (out);
+  try {
+    alt {
+      {
+        let end_snapshot_2 = end_of (out);
+        try {
+          append ("(", out);
+          repeat {
+            require ! (empty (cur));
+            let elt = el_at (cur);
+            let end_snapshot_1 = end_of (out);
+            try {
+              call start (out, elt);
+              incr cur
+            }
+            recover {
+              truncate (end_snapshot_1, out)
+            }
+          }
+          while true;
+          append (")", out)
+        }
+        recover {
+          truncate (end_snapshot_2, out)
+        }
+      } else {
+        append ("0", out)
+      }
+    };
+    require empty (cur)
+  }
+  recover {
+    truncate (end_snapshot_3, out)
+  }
+}

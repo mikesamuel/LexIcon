@@ -1,0 +1,21 @@
+main:
+fn start (out : EData OutputBuffer_t, inp : Top) {
+  var str : EData (InputBuffer_t Unicode);
+  var cur : IData (InputCursor_t Unicode);
+  var chr : IData (CodeUnit_t Unicode);
+  require inp is InputBuffer_t Unicode;
+  let str = inp;
+  let cur = start_of (str);
+  alt {
+    {
+      repeat {
+        require ! (empty (cur));
+        let chr = read (cur);
+        append (cptoa (chr), out);
+        incr cur
+      }
+      while true
+    } else {
+    }
+  }
+}

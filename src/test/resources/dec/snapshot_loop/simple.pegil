@@ -1,0 +1,25 @@
+fn main (pos : IData (InputCursor_t Octet), limit : IData (InputSnapshot_t Octet), out : EData OutputBuffer_t) {
+  var end_snapshot : IData OutputSnapshot_t;
+  let end_snapshot = end_of (out);
+  try {
+    call start (pos, limit, out);
+    require ! (pos < limit)
+  }
+  recover {
+    truncate (end_snapshot, out)
+  }
+}
+fn start (pos : IData (InputCursor_t Octet), limit : IData (InputSnapshot_t Octet), out : EData OutputBuffer_t) {
+  var token : IData (Match_t (Anchored, Octet));
+  append_mks ([StartUserOp (3, (* CreateStringValue *))], out);
+  repeat {
+    let token = find_at (regex ([xy]), pos, limit);
+    require is_match (token);
+    append_mks ([StartUserOp (9, (* AppendCurrent *))], out);
+    copy_to (pos, end_of_match (token), out);
+    set_cursor (pos, end_of_match (token));
+    append_mks ([EndUserOp], out)
+  }
+  while true;
+  append_mks ([EndUserOp], out)
+}
