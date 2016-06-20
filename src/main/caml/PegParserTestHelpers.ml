@@ -36,7 +36,8 @@ module HtmlLogger (PI : PegInterp.S) = struct
     if has_flag "--test.peg.log" header then
       let abbreviated_log = has_flag "--test.peg.abbrev" "" in
       let test_output_dir =
-        Path.join_strs FileTestSuite.run_dir ["test-outputs"; test_subdir] in
+        Path.join_str TestConfig.test_outputs_dir test_subdir
+      in
       Path.mkdirs test_output_dir;
       let state_repr_stringer = PegParser.State.repr_stringer
         ~id_to_name:(PI.Lang.machine_name lang) PI.Op.stringer in
@@ -141,8 +142,8 @@ module HtmlLogger (PI : PegInterp.S) = struct
           ByteOutput.write out
             ("<!DOCTYPE html>\n"
              ^ "<title>parse log</title>\n"
-             ^ "<link rel=stylesheet href='../../test-files/peg/log.css'>\n"
-             ^ "<script src='../../test-files/peg/log.js'></script>\n"
+             ^ "<link rel=stylesheet href='../../src/test/resources/peg/log.css'>\n"
+             ^ "<script src='../../src/test/resources/peg/log.js'></script>\n"
              ^ "<body><h1>");
           ByteOutput.write out (html header);
           ByteOutput.write out

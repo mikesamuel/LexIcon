@@ -36,8 +36,8 @@ let write_decoder path dec =
 
 let base_dirs = {
   FTS.TestDirs.
-  input_dir  = Path.join_strs FTS.run_dir ["test-files";   "dec"];
-  output_dir = Path.join_strs FTS.run_dir ["test-outputs"; "dec"];
+  input_dir  = Path.join_str TestConfig.test_files_dir   "dec";
+  output_dir = Path.join_str TestConfig.test_outputs_dir "dec";
 }
 
 module DecTestInfo = struct

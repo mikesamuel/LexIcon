@@ -20,9 +20,15 @@
 (* src/main/caml -- test directory / run_dir *)
 (* src/test/resources -- test files *)
 (* target/test-outputs -- output_dir *)
+
 val run_dir : Path.t
+(** The directory containing at which the input and output directory trees are
+    rooted. *)
+
 val project_dir : Path.t
+
 val test_files_dir : Path.t
+
 val test_outputs_dir : Path.t
 
 

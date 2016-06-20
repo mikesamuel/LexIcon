@@ -22,10 +22,6 @@ module Reporting : Grammar.Reporting with type meta_t = SourcePosition.t
 
 module CodeGenPipeline : CodeGenerator.S with type m = SourcePosition.t
 
-val run_dir : Path.t
-(** The directory containing at which the input and output directory trees are
-    rooted. *)
-
 val start : SourcePosition.t Grammar.Start.t
 (** Where processing of a grammar for a test-case starts. *)
 

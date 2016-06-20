@@ -25,8 +25,8 @@ module Toolbox = Toolbox.Make (Reporting)
 
 let base_dirs = {
   FTS.TestDirs.
-  input_dir  = Path.join_strs FTS.run_dir ["test-files";   "san"];
-  output_dir = Path.join_strs FTS.run_dir ["test-outputs"; "san"];
+  input_dir  = Path.join_str TestConfig.test_files_dir   "san";
+  output_dir = Path.join_str TestConfig.test_outputs_dir "san";
 }
 
 module SanTestInfo = struct

@@ -212,7 +212,7 @@ end
 
 
 let main _ = begin
-  let bm_base_dir = Path.join_strs FTS.run_dir ["test-files"; "benchmarks"] in
+  let bm_base_dir = Path.join_str TestConfig.test_files_dir "benchmarks" in
   List.iter
     (fun (input_rel_path, tool_kind, tool_dir, tool_class, alt_class) ->
       let input_path = Path.join bm_base_dir input_rel_path in
@@ -224,11 +224,10 @@ let main _ = begin
            "java"
            (Path.to_string (Path.basename (Path.dirname input_path)))
         ) in
-      let input_dir =
-        Path.join (Path.join_str FTS.run_dir "test-files") tool_dir
+      let input_dir = Path.join TestConfig.test_files_dir tool_dir
       in
       let output_dir = Path.join
-        (Path.join_strs FTS.run_dir ["test-outputs"; "benchmarks"]) tool_dir
+        (Path.join_str TestConfig.test_outputs_dir "benchmarks") tool_dir
       in
       let test_dirs = { FTS.TestDirs.input_dir; output_dir } in
       run_java_benchmark

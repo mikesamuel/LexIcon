@@ -131,8 +131,8 @@ end
 
 let base_dirs = {
   FTS.TestDirs.
-  input_dir  = Path.join_strs FTS.run_dir ["test-files";   "enc"];
-  output_dir = Path.join_strs FTS.run_dir ["test-outputs"; "enc"];
+  input_dir  = Path.join_str TestConfig.test_files_dir   "enc";
+  output_dir = Path.join_str TestConfig.test_outputs_dir "enc";
 }
 
 

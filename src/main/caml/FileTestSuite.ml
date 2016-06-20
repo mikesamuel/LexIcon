@@ -31,8 +31,6 @@ module Simplify          = Simplifier.Make        (Reporting)
 module CodeGenPipeline   = CodeGenerator.Make     (Reporting)
 
 
-let run_dir = Path.of_string (Filename.dirname Sys.executable_name)
-
 let start_prod_name = Identifier.make (Identifier.Namespace.default) "start"
 let start : Reporting.meta_t G.Start.t = G.Start.named start_prod_name
 let start_label = Label.of_identifier start_prod_name

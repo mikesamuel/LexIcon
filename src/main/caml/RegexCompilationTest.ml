@@ -33,8 +33,8 @@ let unk = SourcePosition.unknown
 
 let base_dirs = {
   FileTestSuite.TestDirs.
-  input_dir  = Path.join_strs FileTestSuite.run_dir ["test-files";   "re"];
-  output_dir = Path.join_strs FileTestSuite.run_dir ["test-outputs"; "re"];
+  input_dir  = Path.join_str TestConfig.test_files_dir   "re";
+  output_dir = Path.join_str TestConfig.test_outputs_dir "re";
 }
 
 
@@ -211,8 +211,8 @@ let regex_test info =
     let program = IL.Program (Scope.G.make (), functions, start_fn_idx) in
     let program = ILSimplify.simplify program in
 
-    (* Dump IL program to test-outputs and test it against any similarly
-       named file int test-files. *)
+    (* Dump IL program to target/test-outputs and test it against any similarly
+       named file in src/test/resources. *)
     let program_source_output_file = Path.join_str output_dir "source.il" in
     let program_source_file = Path.join_str input_dir "source.il" in
     Path.write (fun out ->
